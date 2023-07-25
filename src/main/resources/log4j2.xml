@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration>
+    <Properties>
+        <Property name="LOG_PATTERN">
+            %style{%d{ISO8601}}{black} %highlight{%-5level }[%style{%t}{bright,blue}] %style{%C{1.}}{bright,yellow}: %msg%n%throwable
+        </Property>
+        <Property name="LOG_FILE_NAME">
+            ./logs/pr-airline-1.log
+        </Property>
+        <Property name="LOG_FILE_PATTERN">
+            ./logs/$${date:yyyy-MM}/pr-airline-1-%d{-dd-MMMM-yyyy}-%i.log.gz
+        </Property>
+    </Properties>
+
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern= "${LOG_PATTERN}"/>
+        </Console>
+
+        <RollingFile name="RollingFile"
+                     fileName="${LOG_FILE_NAME}"
+                     filePattern="${LOG_FILE_PATTERN}">
+            <PatternLayout>
+                <pattern>%d %p %C{1.} [%t] %m%n</pattern>
+            </PatternLayout>
+            <Policies>
+                <!-- rollover on startup, daily and when the file reaches 10 MegaBytes -->
+                <OnStartupTriggeringPolicy />
+                <SizeBasedTriggeringPolicy size="10 MB" />
+                <TimeBasedTriggeringPolicy />
+            </Policies>
+        </RollingFile>
+    </Appenders>
+
+    <Loggers>
+        <!-- LOG everything at INFO level -->
+        <Root level="debug">
+            <AppenderRef ref="Console" />
+            <AppenderRef ref="RollingFile" />
+        </Root>
+
+        <!-- LOG "ru.gazprombank.token.kms.controller*" at INFO level -->
+        <Logger name="ru.gazprombank.token.kms" level="debug"></Logger>
+    </Loggers>
+
+</Configuration>

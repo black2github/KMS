@@ -1,0 +1,51 @@
+server:
+  port: 8888
+  servlet:
+    session:
+      timeout: -1
+  error:
+    include-message: always
+
+spring:
+  application:
+    name: KMS
+  profiles:
+    active: dev, prod
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/airline_db?useUnicode=yes&characterEncoding=UTF-8&serverTimezone=Europe/Moscow
+    username: root
+    password: root
+    hikari:
+      leak-detection-threshold: 60000
+      maximum-pool-size: 20
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        current_session_context_class: org.springframework.orm.hibernate5.SpringSessionContext
+        format_sql: true
+        jdbc:
+          time_zone: Europe/Moscow
+# _method=PATCH -> POST
+  mvc:
+    hiddenmethod:
+      filter:
+        enabled: true
+
+# thymeleaf
+  thymeleaf:
+    cache: false
+    enabled: true
+    prefix: classpath:/templates/
+    suffix=: .html
+
+kms:
+  storePassword: storePassword
+  keyPassword: keyPassword
+  storeURI: file:///C:/work/JavaProjects/GazpromBank/KMS/masterKeystore.jks
+  password1: Password1
+  password2: Password2
