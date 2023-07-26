@@ -2,6 +2,7 @@ package ru.gazprombank.token.kms.util;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import ru.gazprombank.token.kms.service.KeyNotFoundApplicationException;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -20,6 +21,7 @@ import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
+import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.KeyStore;
@@ -29,8 +31,10 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.UnrecoverableKeyException;
+import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 
 // рабочий пример, бери и вставляй кусками в KMS
@@ -193,7 +197,14 @@ public class KeyGenerator {
         try (FileInputStream fis = new FileInputStream(store)) {
             KeyStore keyStore = KeyStore.getInstance("JKS");
             keyStore.load(fis, storePassword);
-            return keyStore.getCertificate(alias).getPublicKey();
+            Certificate cert = keyStore.getCertificate(alias);
+            if (cert!=null) {
+                return cert.getPublicKey();
+            } else {
+                throw new KeyNotFoundApplicationException(
+                        String.format("Публичный ключ недоступен: Сертификат с алиасом '%s' в '%s' не найден.", alias, store));
+            }
+
         } catch (IOException | CertificateException ex) {
             ex.printStackTrace();
             throw new RuntimeException("Can't load key:" + ex.getMessage());
@@ -387,7 +398,20 @@ public class KeyGenerator {
     }
 
     /**
-     *
+     * Убирание имени файла из URI
+     * @param uri
+     * @return
+     */
+    public static String removeFileNameFromPath(URI uri) {
+        String path = uri.getPath();
+        int lastSlashIndex = path.lastIndexOf('/');
+        if (lastSlashIndex != -1) {
+            return path.substring(0, lastSlashIndex + 1);
+        }
+        return path;
+    }
+
+    /**
      * @param uriString
      * @return
      */
@@ -398,6 +422,19 @@ public class KeyGenerator {
         } catch (URISyntaxException e) {
             return false;
         }
+    }
+
+    /**
+     * Конвертация массива байт в публичный ключ.
+     *
+     * @param keyBytes
+     * @param algorithm
+     * @return
+     */
+    public static PublicKey convertBytesToPublicKey(byte[] keyBytes, String algorithm) throws NoSuchAlgorithmException, InvalidKeySpecException {
+        KeyFactory keyFactory = KeyFactory.getInstance(algorithm);
+        X509EncodedKeySpec keySpec = new X509EncodedKeySpec(keyBytes);
+        return keyFactory.generatePublic(keySpec);
     }
 }
 

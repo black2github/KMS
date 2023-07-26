@@ -46,6 +46,7 @@ spring:
 kms:
   storePassword: storePassword
   keyPassword: keyPassword
-  storeURI: file:///C:/work/JavaProjects/GazpromBank/KMS/masterKeystore.jks
+  # storeURI: "file:///C:/work/JavaProjects/GazpromBank/KMS/masterKeystore.jks"
+  storeURI: "file:///C:/work/JavaProjects/GazpromBank/KMS/"
   password1: Password1
   password2: Password2

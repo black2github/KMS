@@ -61,6 +61,8 @@ public class CertificateAndKeyStoreUtil {
     public static void storeKeyPair(KeyPair keyPair, String storeName, String alias, char[] storePassword, char[] keyPassword)
             throws KeyStoreException, CertificateException, IOException, NoSuchAlgorithmException {
 
+        log.info(String.format("storeKeyPair: <- store='%s', alias='%s'", storeName, alias));
+
         // Создание самоподписанного сертификата
         X509Certificate cert = generateSelfSignedCertificate(keyPair);
 
@@ -73,10 +75,10 @@ public class CertificateAndKeyStoreUtil {
             keyStore.store(fos, storePassword);
         } catch (Exception ex) {
             String msg = String.format("Некорректный URI: '%s'", ex.getMessage());
-            log.error("generateMasterKey: " + msg);
+            log.error("storeKeyPair: " + msg);
             throw new KeyPersistApplicationException(msg);
         }
-        log.info("JKS store '" + storeName + "' created.");
+        log.info("storeKeyPair: JKS store '" + storeName + "' created.");
     }
 
     /**

@@ -18,7 +18,22 @@ public interface KeyDataService {
     void delete(KeyDataDto keyDataDto);
 
     /**
-     * Создание мастер-ключа
+     * Создание ключа шифрования данных.
+     * @param alias
+     * @return
+     */
+    KeyData createDataKey(String alias);
+
+    /**
+     * Загрузка мастер-ключа.
+     * @param id
+     * @param password
+     * @return
+     */
+    KeyData loadMasterKey(UUID id, char[] password);
+
+    /**
+     * Создание мастер-ключа.
      * @param id Идентификатор (необязательный)
      * @param alias Алиас (необязательный)
      * @param desc Описание (необязательный)

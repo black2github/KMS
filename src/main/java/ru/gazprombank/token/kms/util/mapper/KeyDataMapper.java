@@ -15,27 +15,35 @@ import java.util.UUID;
  * @author Alexey Sen (alexey.sen@gmail.com)
  * @since - 19.07.2023
  */
-@Mapper(componentModel = "spring", imports = {LocalDateTime.class, UUID.class})
+// @Mapper(componentModel = "spring", imports = {LocalDateTime.class, UUID.class})
 public interface KeyDataMapper {
+
     /**
      * Method maps KeyDataDto to KeyData
+     *
      * @param keyDataDto KeyDataDto to map from.
      * @return KeyData
      */
-    @Mapping(source = "keyDataDto.encodedKey", target = "key")
+    // @Mapping(source = "keyDataDto.encodedKey", target = "key")
+    // @Mapping(source = "encodedKey", target = "key")
+    // @Mapping(source = "id", target = "id")
     KeyData toModel(KeyDataDto keyDataDto);
-
-    default KeyData map(UUID id) {
-        KeyData keyData = new KeyData();
-        keyData.setId(id);
-        return keyData;
-    }
 
     /**
      * Method maps KeyData to KeyDataDto
+     *
      * @param keyData KeyData to map from.
      * @return KeyDataDto
      */
-    @Mapping(source = "keyData.key", target = "encodedKey")
+    // @Mapping(source = "keyData.key", target = "encodedKey")
+    // @Mapping(source = "key", target = "encodedKey")
+    // @Mapping(source = "id", target = "id")
     KeyDataDto toDto(KeyData keyData);
+
+    default String map(KeyData value) {
+        if (value == null) return null;
+        return value.getId().toString();
+    }
+
+    KeyData map(String id);
 }
