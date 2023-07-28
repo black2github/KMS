@@ -1,5 +1,6 @@
 package ru.gazprombank.token.kms.util;
 
+import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
@@ -24,6 +25,7 @@ import java.util.Date;
 
 // генерация и сохранение в файл самоподписанного сертификата для всяческих тестов.
 @Slf4j
+@UtilityClass
 public class CertificateAndKeyStoreUtil {
 
     public static void main(String[] args) {

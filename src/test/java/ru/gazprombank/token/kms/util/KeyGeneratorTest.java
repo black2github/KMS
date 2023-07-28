@@ -7,20 +7,16 @@ import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
-import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.UnrecoverableKeyException;
-import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
 
@@ -118,5 +114,11 @@ class KeyGeneratorTest {
             e.printStackTrace();
             fail(e.getMessage());
         }
+    }
+
+    @Test
+    void isValidURI() {
+        String file = "file:///C:/work/JavaProjects/GazpromBank/KMS/masterKeystore.jks";
+        assertTrue(KeyGenerator.isValidURI(file));
     }
 }

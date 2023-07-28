@@ -4,9 +4,14 @@ package ru.gazprombank.token.kms.entity;
  * Key types.
  */
 public enum KeyType {
-    SYMMETRIC,
+    SYMMETRIC("SYMMETRIC"),
     // Secret key
-    PRIVATE,
+    PRIVATE("PRIVATE"),
     // Public key or certificate
-    PUBLIC
+    PUBLIC("PUBLIC");
+
+    final String name;
+    KeyType(String name) {
+        this.name = name;
+    }
 }

@@ -12,16 +12,13 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
-import ru.gazprombank.token.kms.util.HeadersSpyFilter;
 
 @Configuration
 // добавляется DelegatingFilterProxy, его задача заключается в том,
 // чтобы вызвать цепочку фильтров (FilterChainProxy) из Spring Security.
 @EnableWebSecurity
 // позволяет указать одну или несколько аннотаций безопасности, которые будут применены на уровне методов.
-@EnableGlobalMethodSecurity(prePostEnabled = true, securedEnabled = true, jsr250Enabled = false)
-// @EnableGlobalMethodSecurity(prePostEnabled = true, securedEnabled = true)
+@EnableGlobalMethodSecurity(prePostEnabled = true, securedEnabled = true)
 public class WebConfigurer {
 
     @Bean
@@ -51,14 +48,6 @@ public class WebConfigurer {
     public BCryptPasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
-
-    // Relax Security for Public Resources
-    // @Bean
-    // public WebSecurityCustomizer ignoreResources() {
-    //     return (webSecurity) -> webSecurity
-    //             .ignoring()
-    //             .requestMatchers("/public/*");
-    // }
 
     //
     // Configure Authentication

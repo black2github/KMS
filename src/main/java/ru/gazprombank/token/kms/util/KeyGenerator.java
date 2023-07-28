@@ -1,5 +1,6 @@
 package ru.gazprombank.token.kms.util;
 
+import lombok.experimental.UtilityClass;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import ru.gazprombank.token.kms.service.KeyNotFoundApplicationException;
@@ -38,7 +39,9 @@ import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 
 // рабочий пример, бери и вставляй кусками в KMS
-@Component
+
+// @Component
+@UtilityClass
 public class KeyGenerator {
     public static final String SYMMETRIC_MASTER_KEY_ALGORITHM = "PBKDF2WithHmacSHA512";
     public static final String SYMMETRIC_MASTER_KEY_ALGORITHM_TYPE = "AES";

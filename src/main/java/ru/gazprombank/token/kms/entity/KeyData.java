@@ -8,6 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import lombok.Getter;
@@ -29,7 +30,9 @@ import java.util.UUID;
 @Accessors(chain = true)
 @ToString
 @RequiredArgsConstructor
-@Table(name = "key_data")
+@Table(name = "key_data", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"alias", "type"})
+})
 public class KeyData {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
