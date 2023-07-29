@@ -2,35 +2,36 @@ package ru.gazprombank.token.kms.service.Impl;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.test.context.support.WithUserDetails;
+import ru.gazprombank.token.kms.entity.Dto.KeyDataDto;
 import ru.gazprombank.token.kms.entity.KeyData;
 import ru.gazprombank.token.kms.entity.KeyStatus;
 import ru.gazprombank.token.kms.entity.KeyType;
 import ru.gazprombank.token.kms.entity.PurposeType;
 import ru.gazprombank.token.kms.repository.KeyDataRepository;
-import ru.gazprombank.token.kms.repository.TokenRepository;
-import ru.gazprombank.token.kms.service.InvalidPasswordApplicationException;
 import ru.gazprombank.token.kms.service.KeyDataService;
+import ru.gazprombank.token.kms.util.exceptions.InvalidPasswordApplicationException;
 
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.failBecauseExceptionWasNotThrown;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 
 @SpringBootTest
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class KeyDataServiceImplTest {
     private static final Logger log = LoggerFactory.getLogger(KeyDataServiceImplTest.class);
 
@@ -43,7 +44,7 @@ class KeyDataServiceImplTest {
     @Autowired
     private KeyDataRepository keyDataRepository;
 
-    private static KeyData masterKeyData = null;
+    private static KeyDataDto masterKeyData = null;
 
     @BeforeEach
     void setUp() {
@@ -89,13 +90,16 @@ class KeyDataServiceImplTest {
     @Order(2)
     @WithUserDetails(value = "master2")
     void generateMasterKey2() {
-        // given
         log.info("generateMasterKey2: <- masterKeyData=" + masterKeyData);
 
-        // when
-        masterKeyData = keyDataService.generateMasterKey(masterKeyData.getId(), masterKeyData.getAlias(), masterKeyData.getDescription(),
+        // given  (подготовка тестовых данных)
+        UUID id = UUID.fromString(masterKeyData.getId());
+
+        // when (вызов операций, которые мы тестируем)
+        masterKeyData = keyDataService.generateMasterKey(id, masterKeyData.getAlias(), masterKeyData.getDescription(),
                 masterKeyData.getExpiryDate(), "passwd2".toCharArray(), masterKeyData.getNotifyDate());
-        // then
+        // then (блок с ассертами)
+
         log.info("generateMasterKey2: -> masterKeyData=" + masterKeyData);
     }
 
@@ -108,18 +112,21 @@ class KeyDataServiceImplTest {
         String alias = "alias" + r.nextInt(1000);
         masterKeyData = keyDataService.generateMasterKey(null, alias, null, null,
                 "passwd1".toCharArray(), null);
+        UUID id = UUID.fromString(masterKeyData.getId());
 
         // when
         try {
-            masterKeyData = keyDataService.generateMasterKey(masterKeyData.getId(), alias, masterKeyData.getDescription(),
+            masterKeyData = keyDataService.generateMasterKey(id, alias, masterKeyData.getDescription(),
                     masterKeyData.getExpiryDate(), "passwd2".toCharArray(), masterKeyData.getNotifyDate());
             failBecauseExceptionWasNotThrown(InvalidPasswordApplicationException.class);
         } catch (Exception ex) {
+
             // then should fail
 
-            // clean
-            keyDataRepository.deleteById(masterKeyData.getId());
+
         }
+        // clean
+        keyDataRepository.deleteById(id);
     }
 
     @Test
@@ -129,6 +136,10 @@ class KeyDataServiceImplTest {
         // given
         log.info("loadMasterKey1: <- .");
         masterKeyData = null;
+        List<KeyDataDto> ks = keyDataService.listAll();
+        for (KeyDataDto k: ks) {
+            log.info("loadMasterKey1: = " + k);
+        }
         List<KeyData> keys = keyDataRepository.findByKeyTypeAndPurposeTypeAndStatus(KeyType.PRIVATE, PurposeType.KEK, KeyStatus.ENABLED);
         if (keys.isEmpty()) {
             fail("Не найдено ни одного мастер-ключа подходящего для загрузки");
@@ -147,30 +158,34 @@ class KeyDataServiceImplTest {
     @Order(5)
     @WithUserDetails(value = "master2")
     void loadMasterKey2() {
-        // given
         log.info("loadMasterKey2: <- masterKeyData=" + masterKeyData);
 
+        // given
+        UUID id = UUID.fromString(masterKeyData.getId());
+
         // when
-        masterKeyData = keyDataService.loadMasterKey(masterKeyData.getId(), "passwd2".toCharArray());
+        masterKeyData = keyDataService.loadMasterKey(id, "passwd2".toCharArray());
 
         // then
         assertNotNull(masterKeyData);
         assertSame(masterKeyData.getStatus(), KeyStatus.ENABLED, "Статус должен быть 'Доступен'");
+
         log.info("loadMasterKey2: -> masterKeyData=" + masterKeyData);
     }
 
     @Test
     @Order(6)
+    @WithUserDetails(value = "admin")
     void createDataKey() {
-        KeyData k = keyDataService.createDataKey("alias" + r.nextInt(1000));
+        KeyDataDto k = keyDataService.createDataKey("alias" + r.nextInt(1000));
         assertNotNull(k);
     }
 
     @Test
     @Order(7)
     void listAll() {
-        List<KeyData> keys = keyDataService.listAll();
-        for (KeyData key: keys) {
+        List<KeyDataDto> keys = keyDataService.listAll();
+        for (KeyDataDto key: keys) {
             log.info("->: " + key);
         }
     }

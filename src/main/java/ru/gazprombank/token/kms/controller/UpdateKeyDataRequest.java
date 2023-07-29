@@ -6,7 +6,7 @@ import ru.gazprombank.token.kms.entity.Dto.KeyDataDto;
 
 @Data
 @Builder
-public class MasterKeyGenerationRequest {
+public class UpdateKeyDataRequest {
+    String id;
     private KeyDataDto key;
-    private String password;
 }

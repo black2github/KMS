@@ -7,7 +7,7 @@ import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
-import ru.gazprombank.token.kms.service.KeyPersistApplicationException;
+import ru.gazprombank.token.kms.util.exceptions.KeyPersistApplicationException;
 
 import javax.security.auth.x500.X500Principal;
 import java.io.FileOutputStream;

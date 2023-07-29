@@ -1,11 +1,13 @@
 package ru.gazprombank.token.kms.entity;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
@@ -22,6 +24,10 @@ import org.hibernate.validator.constraints.Length;
 
 import java.security.Key;
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -115,6 +121,9 @@ public class KeyData {
     // @Length(message = "Invalid Status length", min = 3, max = 16)
     @Column(name = "status", length = 16, nullable = false)
     private KeyStatus status;
+
+    @OneToMany(mappedBy = "key", cascade = CascadeType.ALL)
+    private List<KeyDataHistory> history = new LinkedList<>();
 
     /**
      * Encrypted by the key.

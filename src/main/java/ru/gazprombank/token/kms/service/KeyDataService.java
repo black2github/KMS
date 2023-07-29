@@ -9,20 +9,20 @@ import java.util.UUID;
 
 public interface KeyDataService {
 
-    List<KeyData> listAll();
+    List<KeyDataDto> listAll();
 
-    void updateKeyData(KeyDataDto keyDataDto);
+    void updateKeyData(String id, KeyDataDto keyDataDto);
 
     KeyData saveKeyData(KeyDataDto keyDataDto);
 
-    void delete(KeyDataDto keyDataDto);
+    void delete(String uid);
 
     /**
      * Создание ключа шифрования данных.
      * @param alias
      * @return
      */
-    KeyData createDataKey(String alias);
+    KeyDataDto createDataKey(String alias);
 
     /**
      * Загрузка мастер-ключа.
@@ -30,7 +30,7 @@ public interface KeyDataService {
      * @param password
      * @return
      */
-    KeyData loadMasterKey(UUID id, char[] password);
+    KeyDataDto loadMasterKey(UUID id, char[] password);
 
     /**
      * Создание мастер-ключа.
@@ -42,6 +42,6 @@ public interface KeyDataService {
      * @param notifyDate Срок уведомления об истечении срока действия (необязательный)
      * @return
      */
-    KeyData generateMasterKey(UUID id, String alias, String desc, LocalDateTime expirationDate,
+    KeyDataDto generateMasterKey(UUID id, String alias, String desc, LocalDateTime expirationDate,
                             char[] password, LocalDateTime notifyDate);
 }

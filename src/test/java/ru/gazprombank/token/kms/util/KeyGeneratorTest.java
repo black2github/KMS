@@ -12,11 +12,9 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
-import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.security.UnrecoverableKeyException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.Base64;
 
@@ -110,7 +108,7 @@ class KeyGeneratorTest {
 
         } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException |
                  InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException |
-                 IOException | KeyStoreException | UnrecoverableKeyException | URISyntaxException e) {
+                 IOException | URISyntaxException e) {
             e.printStackTrace();
             fail(e.getMessage());
         }

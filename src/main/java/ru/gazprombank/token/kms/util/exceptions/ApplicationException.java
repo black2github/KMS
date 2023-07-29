@@ -1,6 +1,8 @@
-package ru.gazprombank.token.kms.service;
+package ru.gazprombank.token.kms.util.exceptions;
 
-public class ApplicationException extends RuntimeException {
+import java.util.function.Supplier;
+
+public class ApplicationException extends RuntimeException implements Supplier<String> {
     private int code;
 
     public int getCode() {
@@ -36,5 +38,10 @@ public class ApplicationException extends RuntimeException {
     public ApplicationException(int code) {
         super();
         setCode(code);
+    }
+
+    @Override
+    public String get() {
+        return this.getMessage();
     }
 }

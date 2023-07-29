@@ -66,12 +66,12 @@ public class KeyDataMapperImpl implements KeyDataMapper {
         keyDataDto.keyType(keyData.getKeyType());
         keyDataDto.purposeType(keyData.getPurposeType());
         if (keyData.getRelatedKey() != null) {
-            keyDataDto.relatedKey(keyData.getRelatedKey().toString());
+            keyDataDto.relatedKey(keyData.getRelatedKey().getId().toString());
         }
         keyDataDto.createdDate(keyData.getCreatedDate());
         keyDataDto.status(keyData.getStatus());
         if (keyData.getEncKey() != null) {
-            keyDataDto.encKey(keyData.getEncKey().toString());
+            keyDataDto.encKey(keyData.getEncKey().getId().toString());
         }
         keyDataDto.online(keyData.isOnline());
 

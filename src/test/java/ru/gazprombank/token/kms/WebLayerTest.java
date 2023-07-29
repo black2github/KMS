@@ -12,6 +12,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.web.servlet.MockMvc;
+import ru.gazprombank.token.kms.entity.Dto.KeyDataDto;
 import ru.gazprombank.token.kms.entity.KeyData;
 import ru.gazprombank.token.kms.entity.KeyStatus;
 import ru.gazprombank.token.kms.entity.KeyType;
@@ -64,10 +65,11 @@ public class WebLayerTest {
                 .andExpect(content().json(jsonKeyDataList()));
     }
 
-    private List<KeyData> keyDataList() {
-        List<KeyData> keys = new ArrayList<>();
+    private List<KeyDataDto> keyDataList() {
+        List<KeyDataDto> keys = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
-            keys.add(new KeyData("alias" + r.nextInt(1000), "AES", KeyType.PRIVATE, PurposeType.KEK, KeyStatus.ENABLED));
+            // keys.add(new KeyData("alias" + r.nextInt(1000), "AES", KeyType.PRIVATE, PurposeType.KEK, KeyStatus.ENABLED));
+            keys.add(new KeyDataDto());
         }
         return keys;
     }
@@ -84,7 +86,9 @@ public class WebLayerTest {
         // when
         when(keyDataService.generateMasterKey(null, null, null, null,
                 "password1".toCharArray(), null)).thenReturn(
-                new KeyData("alias" + r.nextInt(1000), "RSA", KeyType.PRIVATE, PurposeType.KEK, KeyStatus.ENABLED)
+                // new KeyData("alias" + r.nextInt(1000), "RSA", KeyType.PRIVATE, PurposeType.KEK, KeyStatus.ENABLED)
+                new KeyDataDto().setAlias("alias" + r.nextInt(1000)).setKey("RSA").setKeyType(KeyType.PRIVATE)
+                        .setPurposeType(PurposeType.KEK).setStatus(KeyStatus.ENABLED)
         );  // задачи для сервиса
         // doNothing().when(userValidator).validate(Object.class, Errors.class.newInstance()); // задачи для сервиса
 

@@ -23,9 +23,6 @@ import java.util.UUID;
 /**
  * DTO для работы с сущностью KeyData
  */
-// @Value
-// @Getter
-// @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
 @AllArgsConstructor

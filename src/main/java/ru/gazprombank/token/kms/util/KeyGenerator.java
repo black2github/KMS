@@ -1,9 +1,10 @@
 package ru.gazprombank.token.kms.util;
 
 import lombok.experimental.UtilityClass;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-import ru.gazprombank.token.kms.service.KeyNotFoundApplicationException;
+import ru.gazprombank.token.kms.util.exceptions.InvalidKeyApplicationException;
+import ru.gazprombank.token.kms.util.exceptions.InvalidPasswordApplicationException;
+import ru.gazprombank.token.kms.util.exceptions.KeyNotFoundApplicationException;
+import ru.gazprombank.token.kms.util.exceptions.SecurityApplicationException;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.Cipher;
@@ -109,7 +110,7 @@ public class KeyGenerator {
 
         } catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException |
                  InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException |
-                 KeyStoreException | UnrecoverableKeyException | IOException | URISyntaxException e) {
+                 IOException | URISyntaxException e) {
             e.printStackTrace();
         }
     }
@@ -169,15 +170,28 @@ public class KeyGenerator {
      * @throws NoSuchAlgorithmException
      * @throws URISyntaxException
      */
-    public static PrivateKey loadPrivateKey(String store, String alias, char[] storePassword, char[] keyPassword)
-            throws KeyStoreException, UnrecoverableKeyException, NoSuchAlgorithmException {
+    public static PrivateKey loadPrivateKey(String store, String alias, char[] storePassword, char[] keyPassword) {
         try (FileInputStream fis = new FileInputStream(store)) {
             KeyStore keyStore = KeyStore.getInstance("JKS");
             keyStore.load(fis, storePassword);
             return (PrivateKey) keyStore.getKey(alias, keyPassword);
-        } catch (IOException | CertificateException ex) {
+        } catch (CertificateException | NoSuchAlgorithmException | KeyStoreException ex) {
             ex.printStackTrace();
-            throw new RuntimeException("Can't load key:" + ex.getMessage());
+            throw new KeyNotFoundApplicationException(
+                    String.format("Ошибка загрузки приватного ключа с алиасом '%s' из хранилища %s:", alias, store, ex.getMessage()));
+        } catch (IOException | UnrecoverableKeyException ex) {
+            // неверный пароль
+            if ((ex.getCause() != null) && (ex.getCause() instanceof UnrecoverableKeyException)) {
+                throw new InvalidPasswordApplicationException(
+                        String.format("Неверный пароль. Приватный ключ c алиасом '%s' в хранилище %s недоступен: %s", alias, store, ex.getMessage()));
+            }
+            if (ex instanceof UnrecoverableKeyException) {
+                throw new InvalidPasswordApplicationException(
+                        String.format("Неверный пароль. Приватный ключ c алиасом '%s' в хранилище %s недоступен: %s", alias, store, ex.getMessage()));
+            }
+            // другие причины
+            throw new SecurityApplicationException(
+                    String.format("Приватный ключ c алиасом '%s' в хранилище %s недоступен: %s", alias, store, ex.getMessage()));
         }
     }
 
@@ -195,22 +209,31 @@ public class KeyGenerator {
      * @throws NoSuchAlgorithmException
      * @throws URISyntaxException
      */
-    public static PublicKey loadPublicKey(String store, String alias, char[] storePassword)
-            throws IOException, KeyStoreException, NoSuchAlgorithmException {
+    public static PublicKey loadPublicKey(String store, String alias, char[] storePassword) {
         try (FileInputStream fis = new FileInputStream(store)) {
             KeyStore keyStore = KeyStore.getInstance("JKS");
             keyStore.load(fis, storePassword);
             Certificate cert = keyStore.getCertificate(alias);
-            if (cert!=null) {
+            if (cert != null) {
                 return cert.getPublicKey();
             } else {
                 throw new KeyNotFoundApplicationException(
                         String.format("Публичный ключ недоступен: Сертификат с алиасом '%s' в '%s' не найден.", alias, store));
             }
 
-        } catch (IOException | CertificateException ex) {
-            ex.printStackTrace();
-            throw new RuntimeException("Can't load key:" + ex.getMessage());
+        } catch (NoSuchAlgorithmException | CertificateException | KeyStoreException ex) {
+            throw new KeyNotFoundApplicationException(
+                    String.format("Ошибка загрузки публичного ключа с алиасом '%s' из хранилища %s: %s", alias, store, ex.getMessage()));
+
+        } catch (IOException ex) {
+            if (ex.getCause() != null && ex.getCause() instanceof UnrecoverableKeyException) {
+                throw new InvalidPasswordApplicationException(
+                        String.format("Публичный ключ/сертификат с алиасом '%s' в хранилище '%s' недоступен: %s",
+                                alias, store, ex.getCause().getMessage()));
+            }
+            throw new SecurityApplicationException(
+                    String.format("Публичный ключ/сертификат с алиасом '%s' в хранилище '%s' недоступен: %s",
+                            alias, store, ex.getMessage()));
         }
     }
 
@@ -402,6 +425,7 @@ public class KeyGenerator {
 
     /**
      * Убирание имени файла из URI
+     *
      * @param uri
      * @return
      */

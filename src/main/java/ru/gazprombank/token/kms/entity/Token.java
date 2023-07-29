@@ -9,6 +9,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -26,6 +27,7 @@ import java.util.UUID;
 @Setter
 @Accessors(chain = true)
 @ToString
+//@Builder
 @RequiredArgsConstructor
 @Table(name = "token")
 public class Token {
@@ -38,7 +40,7 @@ public class Token {
      * Creation date and time.
      */
 
-    @NotNull(message = "Реквизит 'Врмея создания' обязателен")
+    @NotNull(message = "Реквизит 'Время создания' обязателен")
     @Column(name = "created_date")
     private LocalDateTime createdDate;
 

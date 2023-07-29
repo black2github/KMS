@@ -10,55 +10,51 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.gazprombank.token.kms.entity.Dto.KeyDataDto;
 import ru.gazprombank.token.kms.entity.KeyData;
+import ru.gazprombank.token.kms.entity.KeyDataHistory;
 import ru.gazprombank.token.kms.entity.KeyStatus;
 import ru.gazprombank.token.kms.entity.KeyType;
 import ru.gazprombank.token.kms.entity.PurposeType;
+import ru.gazprombank.token.kms.repository.KeyDataHistoryRepository;
 import ru.gazprombank.token.kms.repository.KeyDataRepository;
-import ru.gazprombank.token.kms.service.InvalidArgumentApplicationException;
-import ru.gazprombank.token.kms.service.InvalidKeyApplicationException;
-import ru.gazprombank.token.kms.service.InvalidPasswordApplicationException;
 import ru.gazprombank.token.kms.service.KeyDataService;
-import ru.gazprombank.token.kms.service.KeyGenerationApplicationException;
-import ru.gazprombank.token.kms.service.KeyNotFoundApplicationException;
 import ru.gazprombank.token.kms.service.KeyPassword;
-import ru.gazprombank.token.kms.service.KeyPersistApplicationException;
-import ru.gazprombank.token.kms.service.SecurityApplicationException;
 import ru.gazprombank.token.kms.util.CertificateAndKeyStoreUtil;
 import ru.gazprombank.token.kms.util.KeyGenerator;
+import ru.gazprombank.token.kms.util.exceptions.InvalidArgumentApplicationException;
+import ru.gazprombank.token.kms.util.exceptions.InvalidKeyApplicationException;
+import ru.gazprombank.token.kms.util.exceptions.InvalidPasswordApplicationException;
+import ru.gazprombank.token.kms.util.exceptions.KeyGenerationApplicationException;
+import ru.gazprombank.token.kms.util.exceptions.KeyNotFoundApplicationException;
+import ru.gazprombank.token.kms.util.exceptions.KeyPersistApplicationException;
 import ru.gazprombank.token.kms.util.mapper.KeyDataMapper;
 
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
-import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.InvalidKeyException;
-import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
-import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.security.UnrecoverableKeyException;
 import java.security.spec.InvalidKeySpecException;
-import java.security.spec.X509EncodedKeySpec;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -67,8 +63,7 @@ public class KeyDataServiceImpl implements KeyDataService {
 
     private final KeyDataRepository keyDataRepository;
     private final KeyDataMapper keyDataMapper;
-
-    //private final KeyDataMapper keyDataMapper;
+    private final KeyDataHistoryRepository keyDataHistoryRepository;
 
     // хранение мапинга id ключа на пароль на время генерации мастер-ключа
     private static Map<UUID, KeyPassword> keyPassMap = new HashMap<>();
@@ -79,9 +74,50 @@ public class KeyDataServiceImpl implements KeyDataService {
     @Value("${kms.storeURI}")
     private String storeURI;
 
+    static HashMap<KeyStatus, HashSet> attrMap = new HashMap<>();
+
+    // список атрибутов, которые можно менять, в зависимости от статуса
+    static {
+        attrMap.put(KeyStatus.ENABLED, new HashSet<String>(Arrays.asList("description", "expiryDate", "notifyDate", "relatedKey", "online")));
+        attrMap.put(KeyStatus.DISABLED, new HashSet<String>(Arrays.asList("description", "expiryDate", "notifyDate", "relatedKey", "online")));
+        attrMap.put(KeyStatus.UNAVAILABLE, new HashSet<String>(Arrays.asList("description", "expiryDate", "notifyDate", "relatedKey", "online")));
+        attrMap.put(KeyStatus.PENDING_CREATION, new HashSet<String>(Arrays.asList("alias", "description", "expiryDate", "algorithm", "notifyDate", "online")));
+        attrMap.put(KeyStatus.PENDING_IMPORT, new HashSet<String>(Arrays.asList("description", "expiryDate", "notifyDate", "online")));
+        attrMap.put(KeyStatus.PENDING_DELETION, new HashSet<String>(Arrays.asList("description", "notifyDate")));
+    }
+
+    static HashMap<KeyStatus, HashSet<KeyStatus>> statusMap = new HashMap<>();
+
+    // диаграмма переходов состояний
+    static {
+        statusMap.put(KeyStatus.NONE, new HashSet<>(Arrays.asList(KeyStatus.PENDING_CREATION, KeyStatus.ENABLED)));
+
+        statusMap.put(KeyStatus.PENDING_CREATION, new HashSet<>(List.of(KeyStatus.ENABLED)));
+
+        statusMap.put(KeyStatus.PENDING_IMPORT, new HashSet<>(Arrays.asList(KeyStatus.ENABLED, KeyStatus.UNAVAILABLE)));
+
+        statusMap.put(KeyStatus.UNAVAILABLE, new HashSet<>(Arrays.asList(
+                KeyStatus.ENABLED, KeyStatus.DISABLED, KeyStatus.PENDING_IMPORT,
+                KeyStatus.PENDING_DELETION, KeyStatus.UNAVAILABLE)));
+
+        statusMap.put(KeyStatus.ENABLED, new HashSet<>(Arrays.asList(
+                KeyStatus.ENABLED, KeyStatus.DISABLED, KeyStatus.PENDING_IMPORT,
+                KeyStatus.PENDING_DELETION, KeyStatus.UNAVAILABLE)));
+
+        statusMap.put(KeyStatus.DISABLED, new HashSet<>(Arrays.asList(
+                KeyStatus.ENABLED, KeyStatus.DISABLED, KeyStatus.PENDING_DELETION, KeyStatus.UNAVAILABLE)));
+
+        statusMap.put(KeyStatus.PENDING_DELETION, new HashSet<>(List.of(KeyStatus.DISABLED)));
+    }
+
+    /**
+     * Получение списка всех ключей.
+     *
+     * @return
+     */
     @Transactional
     @Override
-    public List<KeyData> listAll() {
+    public List<KeyDataDto> listAll() {
         log.debug("listAll: <-");
         List<KeyData> list = new LinkedList<>();
         Iterable<KeyData> it = keyDataRepository.findAll();
@@ -89,13 +125,45 @@ public class KeyDataServiceImpl implements KeyDataService {
             list.add(keyData);
         }
         log.debug("listAll: -> " + Arrays.toString(list.toArray()));
-        return list;
+        return list.stream().map(keyDataMapper::toDto).collect(Collectors.toList());
     }
 
+    /**
+     * Обновление атрибутов ключа
+     *
+     * @param from
+     */
     @Transactional
     @Override
-    public void updateKeyData(KeyDataDto keyDataDto) {
+    public void updateKeyData(String id, KeyDataDto from) {
+        log.info("updateKeyData: <- id=" + id + ", key=" + from);
 
+        UUID uid = UUID.fromString(id);
+        KeyData to = keyDataRepository.findById(uid).orElseThrow(
+                () -> new KeyNotFoundApplicationException("Ключ '" + uid + "' не найден."));
+
+        // обновление
+        HashSet attrs = attrMap.get(to.getStatus());
+        if (attrs.contains("alias") && from.getAlias() != null) to.setAlias(from.getAlias());
+        if (attrs.contains("description") && from.getDescription() != null) to.setDescription(from.getDescription());
+        if (attrs.contains("expiryDate") && from.getExpiryDate() != null) to.setExpiryDate(from.getExpiryDate());
+        if (attrs.contains("notifyDate") && from.getNotifyDate() != null) to.setNotifyDate(from.getNotifyDate());
+        if (attrs.contains("relatedKey") && from.getRelatedKey() != null) {
+            UUID uuid;
+            try {
+                uuid = UUID.fromString(from.getRelatedKey());
+            } catch (IllegalArgumentException ex) {
+                throw new InvalidArgumentApplicationException("Идентификатор связанного ключа '" + from.getRelatedKey() + "' не соответсвует формату UUID.");
+            }
+            KeyData r = keyDataRepository.findById(uuid).orElseThrow(
+                    () -> new KeyNotFoundApplicationException("Связанный ключ " + from.getRelatedKey() + "не найден."));
+            to.setRelatedKey(r);
+        }
+        if (attrs.contains("algorithm") && from.getAlgorithm() != null) to.setAlgorithm(from.getAlgorithm());
+        if (attrs.contains("online")) to.setOnline(from.isOnline());
+
+        // сохранение
+        keyDataRepository.saveAndFlush(to);
     }
 
     @Transactional
@@ -104,14 +172,25 @@ public class KeyDataServiceImpl implements KeyDataService {
         return null;
     }
 
+    /**
+     * Удаление ключа (отметка об удалении).
+     *
+     * @param id
+     */
     @Override
-    public void delete(KeyDataDto keyDataDto) {
+    @Transactional
+    public void delete(String id) {
+        log.info(String.format("delete: <- alias='%s'", id));
+        UUID uuid = UUID.fromString(id);
 
+        KeyData key = keyDataRepository.findById(uuid).orElseThrow(
+                () -> new KeyNotFoundApplicationException("Ключ для удаления '" + id + "' не найден."));
+        changeStatus(key, KeyStatus.PENDING_DELETION);
     }
 
     @Override
     @Transactional
-    public KeyData createDataKey(String alias) {
+    public KeyDataDto createDataKey(String alias) {
         log.info(String.format("createDataKey: <- alias='%s'", alias));
         //
         // Найти подходящий мастер-ключ в оперативном хранилище
@@ -136,7 +215,7 @@ public class KeyDataServiceImpl implements KeyDataService {
                 break;
             }
         }
-        if (master==null) {
+        if (master == null) {
             String msg = "Не найден ни один актуальный мастер-ключ с неистекшим сроком действия.";
             log.warn(msg);
             throw new KeyNotFoundApplicationException(msg);
@@ -157,7 +236,7 @@ public class KeyDataServiceImpl implements KeyDataService {
             SecretKey secretKey = KeyGenerator.generateDataKey();
             byte[] encryptedDataKey = KeyGenerator.encryptDataKey(secretKey, publicKey);
             keyData = new KeyData(alias, KeyGenerator.SYMMETRIC_MASTER_KEY_ALGORITHM,
-                    KeyType.SYMMETRIC, PurposeType.DEK, KeyStatus.ENABLED);
+                    KeyType.SYMMETRIC, PurposeType.DEK, KeyStatus.NONE);
             keyData.setDescription("Ключ шифрования данных " + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
             keyData.setKey(Base64.getEncoder().encodeToString(encryptedDataKey));
         } catch (NoSuchPaddingException | IllegalBlockSizeException | NoSuchAlgorithmException |
@@ -167,11 +246,13 @@ public class KeyDataServiceImpl implements KeyDataService {
 
         // Сохранить ключ шифрования данных
         try {
+            // keyDataRepository.save(keyData);
+            changeStatus(keyData, KeyStatus.ENABLED);
             keyDataRepository.save(keyData);
         } catch (Exception e) {
             throw new KeyPersistApplicationException("Ошибка сохранения ключа шифрования данных: " + e.getMessage());
         }
-        return keyData;
+        return keyDataMapper.toDto(keyData);
     }
 
     /**
@@ -180,23 +261,24 @@ public class KeyDataServiceImpl implements KeyDataService {
      * @param id идентификатор ключа
      * @return ключевая информация
      */
-    @Transactional
     @Override
-    public KeyData loadMasterKey(UUID id, char[] password) {
+    @Transactional(noRollbackFor = InvalidPasswordApplicationException.class)
+    public KeyDataDto loadMasterKey(UUID id, char[] password) {
         log.info(String.format("loadMasterKey: <- id=%s", id));
         if (id == null) {
             throw new InvalidArgumentApplicationException("Пустой идентификатор ключа для загрузки.");
         }
-        KeyData key = keyDataRepository.findById(id).orElse(null);;
-        // key = keyDataRepository.getReferenceById(id);
-        if (key == null || key.getEncKey() != null) {
-            throw new KeyNotFoundApplicationException("Ошибка загрузки ключа: мастер-ключ " + id + " не найден.");
+        KeyData key = keyDataRepository.findById(id).orElseThrow(
+                () -> new KeyNotFoundApplicationException("Ошибка загрузки ключа: мастер-ключ " + id + " не найден."));
+
+        if (key.getEncKey() != null) {
+            throw new KeyNotFoundApplicationException("Ошибка загрузки ключа: ключ '" + id + "' не является мастер-ключем.");
         }
 
         if (key.getStatus() != KeyStatus.PENDING_IMPORT)
-            return loadMasterKeyPhase1(key, password);
+            return keyDataMapper.toDto(loadMasterKeyPhase1(key, password));
         else
-            return loadMasterKeyPhase2(key, password);
+            return keyDataMapper.toDto(loadMasterKeyPhase2(key, password));
     }
 
     /*
@@ -216,7 +298,8 @@ public class KeyDataServiceImpl implements KeyDataService {
 
         // установка статуса загрузки
         // TODO сделать это же и для связанного ключа?
-        keyData.setStatus(KeyStatus.PENDING_IMPORT);
+        // keyData.setStatus(KeyStatus.PENDING_IMPORT);
+        changeStatus(keyData, KeyStatus.PENDING_IMPORT);
         keyDataRepository.save(keyData);
 
         return keyData;
@@ -229,7 +312,17 @@ public class KeyDataServiceImpl implements KeyDataService {
         log.info("loadMasterKeyPhase2: <- " + key);
 
         // Проверка паролей
-        KeyPassword keyPassword = checkPassword(key.getId(), password);
+        KeyPassword keyPassword;
+        try {
+            keyPassword = checkPassword(key.getId(), password);
+        } catch (InvalidPasswordApplicationException ex) {
+            // проблема с паролями - ставим ключу статус "недоступен"
+            // TODO скорей всего не сработает из-за обработки в рамках исключения
+            // key.setStatus(KeyStatus.UNAVAILABLE);
+            changeStatus(key, KeyStatus.UNAVAILABLE);
+            throw ex;
+        }
+
 
         // Загрузить ключи из файла
         PrivateKey privateKey;
@@ -239,8 +332,7 @@ public class KeyDataServiceImpl implements KeyDataService {
             privateKey = KeyGenerator.loadPrivateKey(fileName, key.getAlias(),
                     keyPassword.getPart1(), keyPassword.getPart2());
             publicKey = KeyGenerator.loadPublicKey(fileName, key.getAlias(), keyPassword.getPart1());
-        } catch (KeyStoreException | UnrecoverableKeyException | NoSuchAlgorithmException |
-                 URISyntaxException| IOException e) {
+        } catch (URISyntaxException e) {
             throw new KeyNotFoundApplicationException("Ошибка загрузки ключа: " + e.getMessage());
         }
 
@@ -253,7 +345,8 @@ public class KeyDataServiceImpl implements KeyDataService {
         keyDataMap.put(key.getId(), keyDto);
         log.info("loadMasterKeyPhase2: Загружен ключ " + key.getId());
         // установить ключу статус "Доступен"
-        key.setStatus(KeyStatus.ENABLED);
+        // key.setStatus(KeyStatus.ENABLED);
+        changeStatus(key, KeyStatus.ENABLED);
         keyDataRepository.save(key);
         // проделать те же шаги для связанного ключа, если он есть
         KeyData relatedKeyData = key.getRelatedKey();
@@ -264,7 +357,8 @@ public class KeyDataServiceImpl implements KeyDataService {
             keyDataMap.put(relatedKeyData.getId(), relatedDto);
             log.info("loadMasterKeyPhase2: Загружен ключ " + relatedKeyData.getId());
             // установить ключу статус "Доступен"
-            relatedKeyData.setStatus(KeyStatus.ENABLED);
+            // relatedKeyData.setStatus(KeyStatus.ENABLED);
+            changeStatus(relatedKeyData, KeyStatus.ENABLED);
             keyDataRepository.save(relatedKeyData);
         }
 
@@ -289,7 +383,7 @@ public class KeyDataServiceImpl implements KeyDataService {
             throw new InvalidPasswordApplicationException(msg);
         }
         if (keyPassword == null) {
-            String msg = String.format("Пароль для id='%s' не найден.", id);
+            String msg = String.format("Пароль для ключа id='%s' не загружен.", id);
             log.error("checkPassword: " + msg);
             throw new InvalidPasswordApplicationException(msg);
         }
@@ -318,17 +412,29 @@ public class KeyDataServiceImpl implements KeyDataService {
         return keyPassword;
     }
 
+    /**
+     * Генерация мастер-ключа.
+     *
+     * @param id             Идентификатор (необязательный)
+     * @param alias          Алиас (необязательный)
+     * @param desc           Описание (необязательный)
+     * @param expirationDate Срок действия (необязательный)
+     * @param password       Пароль
+     * @param notifyDate     Срок уведомления об истечении срока действия (необязательный)
+     * @return
+     */
     @Transactional
     @Override
-    public KeyData generateMasterKey(UUID id, String alias, String desc, LocalDateTime expirationDate,
-                                     char[] password, LocalDateTime notifyDate) {
+    public KeyDataDto generateMasterKey(UUID id, String alias, String desc, LocalDateTime expirationDate,
+                                        char[] password, LocalDateTime notifyDate) {
         log.info(String.format("generateMasterKey: <- id=%s, alias='%s', desc='%s', expirationDate=%s, notifyDate=%s",
                 id, alias, desc, expirationDate, notifyDate));
 
-        if (id == null)
-            return generateMasterKeyPhase1(alias, desc, expirationDate, password, notifyDate);
-        else
-            return generateMasterKeyPhase2(id, alias, desc, expirationDate, password, notifyDate);
+        if (id == null) {
+            return keyDataMapper.toDto(generateMasterKeyPhase1(alias, desc, expirationDate, password, notifyDate));
+        } else {
+            return keyDataMapper.toDto(generateMasterKeyPhase2(id, alias, desc, expirationDate, password, notifyDate));
+        }
     }
 
     /*
@@ -339,8 +445,11 @@ public class KeyDataServiceImpl implements KeyDataService {
         log.info("generateMasterKeyPhase1: <- ");
 
         KeyData keyData = new KeyData(alias, KeyGenerator.ASYMMETRIC_MASTER_KEY_ALGORITHM,
-                KeyType.PRIVATE, PurposeType.KEK, KeyStatus.PENDING_CREATION);
+                KeyType.PRIVATE, PurposeType.KEK, KeyStatus.NONE);
         keyData.setDescription(Objects.requireNonNullElseGet(desc, () -> "Мастер-ключ (приватная часть) " + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)));
+        // сохранение ключа для получения идентификатора
+        keyDataRepository.saveAndFlush(keyData);
+        changeStatus(keyData, KeyStatus.PENDING_CREATION);
         // TODO - брать значение настройки
         keyData.setExpiryDate(Objects.requireNonNullElseGet(expirationDate, () -> LocalDateTime.now().plusYears(5)));
         keyDataRepository.save(keyData);
@@ -364,13 +473,12 @@ public class KeyDataServiceImpl implements KeyDataService {
                                             char[] password, LocalDateTime notifyDate) {
         log.info("generateMasterKeyPhase2: <- ");
 
-        KeyData keyData;
-        try {
-            keyData = keyDataRepository.getReferenceById(id);
-        } catch (Exception ex) {
-            log.error("generateMasterKeyPhase2: " + ex);
-            throw new KeyGenerationApplicationException(ex.getMessage());
-        }
+        //
+        // поиск записи, для которой происходит генерация ключа
+        //
+        KeyData keyData = keyDataRepository.findById(id).orElseThrow(
+                () -> new KeyNotFoundApplicationException("Ключ с идентификатором '" + id + "' не найден."));
+
 
         if ((!keyData.getPurposeType().equals(PurposeType.KEK)) ||
                 (!keyData.getStatus().equals(KeyStatus.PENDING_CREATION)) ||
@@ -386,7 +494,9 @@ public class KeyDataServiceImpl implements KeyDataService {
         // Происходит создание ключа с алгоритмом равным "PBKDF2WithHmacSHA512" и реквизитами
         // Пароль КИ.Часть 1 и Пароль КИ.Часть 2
 
+        //
         // создать пару публичный/приватный мастер-ключа (ассиметричный)
+        //
         KeyPair keyPair;
         String fileName;
         try {
@@ -421,8 +531,10 @@ public class KeyDataServiceImpl implements KeyDataService {
         // очищаются все атрибуты Пароль КИ
         keyPassMap.remove(id);
         // Обновление данных
-        changeStatus(keyData.getId(), KeyStatus.ENABLED);
+        // changeStatus(keyData.getId().toString(), KeyStatus.ENABLED);
         keyData.setCreatedDate(LocalDateTime.now());
+        keyData.setDescription(desc);
+        keyData.setNotifyDate(notifyDate);
 
         //
         // [КК_KMS] Ключевая информация (КИ) сохраняется в хранилище ключей: сохранение URI в ключ
@@ -432,6 +544,8 @@ public class KeyDataServiceImpl implements KeyDataService {
             keyData.setKey(Paths.get(fileName).toUri().toString());
             // сохранить секретный ключ
             keyDataRepository.save(keyData);
+            // сохранить историю секретного ключа
+            changeStatus(keyData, KeyStatus.ENABLED);
 
             if (keyData.getKeyType() != KeyType.SYMMETRIC) {
                 //
@@ -439,8 +553,11 @@ public class KeyDataServiceImpl implements KeyDataService {
                 //
                 KeyData publicKeyData = new KeyData(keyData.getAlias(), keyData.getAlgorithm(), KeyType.PUBLIC,
                         keyData.getPurposeType(), keyData.getStatus());
-                publicKeyData.setDescription(Objects.requireNonNullElseGet(desc.replaceAll("приватная", "публичная"),
-                        () -> "Мастер-ключ (публичная часть) " + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)));
+                if (desc == null || desc.isEmpty()) {
+                    publicKeyData.setDescription("Мастер-ключ (публичная часть) " + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+                } else {
+                    publicKeyData.setDescription(desc.replaceFirst("приватная", "публичная"));
+                }
 
                 // скопировать URI ссылки на хранилище ключей
                 publicKeyData.setKey(keyData.getKey());
@@ -453,6 +570,8 @@ public class KeyDataServiceImpl implements KeyDataService {
                 keyData.setRelatedKey(publicKeyData);
                 // обновить секретный ключ
                 keyDataRepository.save(keyData);
+                // сохранить историю публичного ключа
+                changeStatus(publicKeyData, KeyStatus.ENABLED);
 
                 // Поместить публичный ключ в оперативный доступ
                 KeyDataDto publicDto = keyDataMapper.toDto(publicKeyData);
@@ -478,14 +597,58 @@ public class KeyDataServiceImpl implements KeyDataService {
     }
 
     /*
-     *
+     * обновить историю статусов
      */
-    private void changeStatus(UUID id, KeyStatus keyStatus) {
-        log.info(String.format("changeStatus: <- new status = '%s', user = '%s'", keyStatus, getUserInfo()));
-        // TODO
-        KeyData keyData = keyDataRepository.getReferenceById(id);
-        keyData.setStatus(keyStatus);
-        keyDataRepository.save(keyData);
+    private void changeStatus(KeyData key, KeyStatus newStatus) {
+        log.info(String.format("changeStatus: <- key = '%s', new status = '%s'", key, newStatus));
+
+        // проверяем, что можно переходить в указанный статус
+        log.info("statusMap:");
+        Set<KeyStatus> set = statusMap.keySet();
+        for (KeyStatus s: set) {
+            log.info("-> " + s.toString() + ", -- " + statusMap.get(s));
+        }
+
+        if (statusMap.get(key.getStatus()).contains(newStatus)) {
+            key.setStatus(newStatus);
+        } else {
+            throw new InvalidArgumentApplicationException("Переход из статуса " + key.getStatus() + " в статус " + newStatus + " запрещен.");
+        }
+        // создаем запись истории
+        KeyDataHistory history = KeyDataHistory.builder()
+                .createdDate(LocalDateTime.now())
+                .status(newStatus)
+                .user(getUserInfo())
+                .userType("USER")
+                .key(key)
+                .build();
+        keyDataHistoryRepository.save(history);
+        // добавить в историю статусов
+        key.getHistory().add(history);
+        // установить текущий статус для ключа
+        key.setStatus(newStatus);
+        keyDataRepository.save(key);
+    }
+
+    /**
+     * Смена статуса ключа.
+     *
+     * @param id
+     * @param newStatus
+     */
+    @Transactional
+    public void changeStatus(String id, KeyStatus newStatus) {
+        log.info(String.format("changeStatus: <- id = '%s', status = '%s'", id, newStatus));
+
+        UUID uid;
+        try {
+            uid = UUID.fromString(id);
+        } catch (Exception ex) {
+            throw new InvalidArgumentApplicationException("Некорректный формат идентификатора ключа для смены статуса: " + id);
+        }
+        KeyData key = keyDataRepository.findById(uid).orElseThrow(
+                () -> new KeyNotFoundApplicationException("Ключ с идентификатором '" + uid + "' для смены статуса не найден."));
+        changeStatus(key, newStatus);
     }
 
     /*
