@@ -10,6 +10,7 @@ import ru.gazprombank.token.kms.entity.KeyStatus;
 import ru.gazprombank.token.kms.entity.KeyType;
 import ru.gazprombank.token.kms.entity.PurposeType;
 import ru.gazprombank.token.kms.entity.Token;
+import ru.gazprombank.token.kms.entity.TokenType;
 import ru.gazprombank.token.kms.repository.KeyDataRepository;
 import ru.gazprombank.token.kms.repository.TokenRepository;
 
@@ -67,7 +68,7 @@ class RepositoryTests {
         KeyData key = new KeyData("alias-" + r.nextInt(RANGE), "algorithm-"+r.nextInt(RANGE),
                 KeyType.SYMMETRIC, PurposeType.DEK, KeyStatus.PENDING_CREATION);
         keyDataRepository.save(key);
-        Token token = new Token(key, "secret-" + r.nextInt(RANGE), "PAN");
+        Token token = new Token(key, "secret-" + r.nextInt(RANGE), TokenType.PAN);
         tokenRepository.save(token);
         log.info("createToken: token=" + token);
         assertTrue("Just created token not found", tokenRepository.existsById(token.getId()));

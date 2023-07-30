@@ -10,23 +10,24 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.core.parameters.P;
 import org.springframework.security.test.context.support.WithUserDetails;
 import ru.gazprombank.token.kms.entity.Dto.KeyDataDto;
 import ru.gazprombank.token.kms.entity.KeyData;
 import ru.gazprombank.token.kms.entity.KeyStatus;
 import ru.gazprombank.token.kms.entity.KeyType;
 import ru.gazprombank.token.kms.entity.PurposeType;
+import ru.gazprombank.token.kms.entity.TokenType;
 import ru.gazprombank.token.kms.repository.KeyDataRepository;
 import ru.gazprombank.token.kms.service.KeyDataService;
+import ru.gazprombank.token.kms.service.TokenService;
 import ru.gazprombank.token.kms.util.exceptions.InvalidPasswordApplicationException;
 
+import javax.crypto.SecretKey;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.failBecauseExceptionWasNotThrown;
-import static org.assertj.core.api.InstanceOfAssertFactories.type;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -43,6 +44,8 @@ class KeyDataServiceImplTest {
 
     @Autowired
     private KeyDataService keyDataService;
+    @Autowired
+    private TokenService tokenService;
 
     @Autowired
     private KeyDataRepository keyDataRepository;
@@ -247,4 +250,37 @@ class KeyDataServiceImplTest {
         }
     }
 
+    @Test
+    @Order(10)
+    @WithUserDetails(value = "admin")
+    void decodeDataKey() {
+        // given
+        KeyDataDto k = keyDataService.generateDataKey("alias" + r.nextInt(1000));
+        assertNotNull(k);
+        log.info("decodeDataKey: key=" + k);
+
+        // when
+        SecretKey s = keyDataService.decodeDataKey(UUID.fromString(k.getId()));
+
+        // then
+        assertNotNull(s);
+
+        // clean
+    }
+
+    @Test
+    @Order(11)
+    void secret2Token2Secret() {
+        // given
+        String pan = "1111222233334444";
+
+        // when
+        String token = tokenService.secret2Token(pan, TokenType.PAN, null);
+        assertNotNull(token);
+        log.info("token = '" + token + "'");
+        String secret = tokenService.token2Secret(token);
+
+        // then
+        assertTrue(pan.equals(secret));
+    }
 }

@@ -188,6 +188,67 @@ public class KeyDataServiceImpl implements KeyDataService {
         changeStatus(key, KeyStatus.PENDING_DELETION);
     }
 
+    private void printKeyMap() {
+        for (UUID id: keyDataMap.keySet()) {
+            log.info("map: " + id + " => " + keyDataMap.get(id));
+        }
+    }
+
+    /**
+     * Получение секретного ключа шифрования данных в открытом виде.
+     *
+     * @param id
+     * @return
+     */
+    @Override
+    public SecretKey decodeDataKey(UUID id) {
+        log.info("decodeDataKey: <- id=" + id);
+
+        // найти ключ шифрования данных
+        KeyData key = keyDataRepository.findById(id).orElseThrow(
+                () -> new KeyNotFoundApplicationException("Ключ шифрования данных '" + id + "' не найден."));
+
+
+        // взять публичный мастер-ключ из оперативного доступа
+        printKeyMap();
+        KeyDataDto pMaster = keyDataMap.get(key.getEncKey().getId());
+        if (pMaster == null) {
+            String msg = String.format("Мастер-ключ '%s' (публичная часть) для ключа шифрования данных в оперативном доступе не найден.", key.getEncKey().getId());
+            log.error("decodeDataKey:" + msg);
+            throw new KeyNotFoundApplicationException(msg);
+        }
+        log.info("decodeDataKey: в оперативном доступе найден публичный мастер-ключ " + pMaster);
+
+        // взять соответствующий связанный (секретный) ключ
+        KeyDataDto sMaster = keyDataMap.get(UUID.fromString(pMaster.getRelatedKey()));
+        if (sMaster == null) {
+            String msg = String.format("Мастер-ключ '%s' (секретная часть) для ключа шифрования данных в оперативном доступе не найден.", key.getEncKey().getId());
+            log.error("decodeDataKey:" + msg);
+            throw new KeyNotFoundApplicationException(msg);
+        }
+        log.info("decodeDataKey: в оперативном доступе найден секретный мастер-ключ " + sMaster);
+
+        // Декодировать секретный ключ из мастера (KEK)
+        PrivateKey privateKey = null;
+        byte[] rawKey = Base64.getDecoder().decode(sMaster.getKey());
+        try {
+            privateKey = KeyGenerator.convertBytesToPrivateKey(rawKey, "RSA");
+        } catch (InvalidKeySpecException | NoSuchAlgorithmException e) {
+            String msg = String.format("Ошибка восстановления приватного мастер-ключа '%s': %s", sMaster.getId(), e.getMessage());
+            log.error(msg);
+            throw new KeyGenerationApplicationException(msg);
+        }
+        // Расшифровать ключ шифрования данных
+        try {
+            byte[] data = Base64.getDecoder().decode(key.getKey());
+            return KeyGenerator.decryptDataKey(data, privateKey);
+        } catch (Exception ex) {
+            String msg = String.format("Ошибка восстановления ключа шифрования данных '%s': %s", key.getId(), ex.getMessage());
+            log.error("decodeDataKey:" + msg);
+            throw new KeyNotFoundApplicationException(msg);
+        }
+    }
+
     /**
      * Генерация ключа шифрования данных
      *
@@ -344,7 +405,9 @@ public class KeyDataServiceImpl implements KeyDataService {
             String fileName = KeyGenerator.getFileNameFromURI(new URI(key.getKey()));
             privateKey = KeyGenerator.loadPrivateKey(fileName, key.getAlias(),
                     keyPassword.getPart1(), keyPassword.getPart2());
+            log.info("loadMasterKeyPhase2: privateKey = " + Base64.getEncoder().encodeToString(privateKey.getEncoded()));
             publicKey = KeyGenerator.loadPublicKey(fileName, key.getAlias(), keyPassword.getPart1());
+            log.info("loadMasterKeyPhase2: publicKey = " + Base64.getEncoder().encodeToString(publicKey.getEncoded()));
         } catch (URISyntaxException e) {
             throw new KeyNotFoundApplicationException("Ошибка загрузки ключа: " + e.getMessage());
         }
@@ -379,7 +442,8 @@ public class KeyDataServiceImpl implements KeyDataService {
     }
 
     /*
-     * Проверка ограничений пароля и преобразование паролей для дальнейшего использования
+     * Проверка ограничений паролей и пользователе
+     * и преобразование паролей для дальнейшего использования.
      */
     private KeyPassword checkPassword(UUID id, char[] password) {
 
@@ -662,8 +726,8 @@ public class KeyDataServiceImpl implements KeyDataService {
     /**
      * Смена статуса ключа.
      *
-     * @param id
-     * @param newStatus
+     * @param id        ключа.
+     * @param newStatus новый статус, в который требуется переход.
      */
     @Transactional
     public void changeStatus(String id, KeyStatus newStatus) {

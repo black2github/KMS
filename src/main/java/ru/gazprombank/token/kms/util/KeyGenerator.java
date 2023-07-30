@@ -36,6 +36,7 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
+import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 
@@ -454,14 +455,33 @@ public class KeyGenerator {
     /**
      * Конвертация массива байт в публичный ключ.
      *
-     * @param keyBytes
+     * @param keyBytes сырой массив байт ключа.
      * @param algorithm
      * @return
      */
     public static PublicKey convertBytesToPublicKey(byte[] keyBytes, String algorithm) throws NoSuchAlgorithmException, InvalidKeySpecException {
+        // Создаем объект KeyFactory с помощью алгоритма RSA
         KeyFactory keyFactory = KeyFactory.getInstance(algorithm);
         X509EncodedKeySpec keySpec = new X509EncodedKeySpec(keyBytes);
+        // Получаем публичный ключ
         return keyFactory.generatePublic(keySpec);
+    }
+
+    /**
+     * Конвертация массива байт в приватный ключ.
+     * @param keyBytes сырой массив байт ключа.
+     * @param algorithm
+     * @return
+     * @throws InvalidKeySpecException
+     * @throws NoSuchAlgorithmException
+     */
+    public static PrivateKey convertBytesToPrivateKey(byte[] keyBytes, String algorithm) throws InvalidKeySpecException, NoSuchAlgorithmException {
+        // Создаем объект KeyFactory с помощью алгоритма RSA
+        KeyFactory keyFactory = KeyFactory.getInstance("RSA");
+        // Создаем объект PKCS8EncodedKeySpec из массива байт закодированного приватного ключа
+        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(keyBytes);
+        // Получаем приватный ключ
+        return keyFactory.generatePrivate(keySpec);
     }
 }
 

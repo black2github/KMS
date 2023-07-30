@@ -1,6 +1,9 @@
 package ru.gazprombank.token.kms.entity;
 
+import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
+import jakarta.persistence.Converter;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -9,6 +12,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -27,8 +31,9 @@ import java.util.UUID;
 @Setter
 @Accessors(chain = true)
 @ToString
-//@Builder
+@Builder
 @RequiredArgsConstructor
+@AllArgsConstructor
 @Table(name = "token")
 public class Token {
     @Id
@@ -71,7 +76,8 @@ public class Token {
      * Type.
      */
     @Column(length = 32)
-    private String type;
+    @Convert(converter = TokenTypeConverter.class)
+    private TokenType type;
 
     /**
      * Index.
@@ -84,7 +90,7 @@ public class Token {
      * @param secret
      * @param type
      */
-    public Token(KeyData key, String secret, String type) {
+    public Token(KeyData key, String secret, TokenType type) {
         this.key = key;
         this.secret = secret;
         this.type = type;
@@ -113,5 +119,23 @@ public class Token {
         result = 31 * result + (getType() != null ? getType().hashCode() : 0);
         result = 31 * result + (getIndex() != null ? getIndex().hashCode() : 0);
         return result;
+    }
+}
+
+@Converter
+class TokenTypeConverter implements AttributeConverter<TokenType, String> {
+    @Override
+    public String convertToDatabaseColumn(TokenType type) {
+        switch (type) {
+            case PAN: return "PAN";
+            default: return "PAN";
+        }
+    }
+    @Override
+    public TokenType convertToEntityAttribute(String s) {
+        switch (s) {
+            case "PAN": return TokenType.PAN;
+            default: return TokenType.PAN;
+        }
     }
 }
