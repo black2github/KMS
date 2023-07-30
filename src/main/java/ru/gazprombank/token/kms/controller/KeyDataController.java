@@ -139,12 +139,12 @@ public class KeyDataController {
      */
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<KeyDataDto> createDataKey(@RequestBody String alias) {
-        log.info("createDataKey: <- alias=" + alias);
+    public ResponseEntity<KeyDataDto> generateDataKe(@RequestBody String alias) {
+        log.info("generateDataKe: <- alias=" + alias);
 
-        KeyDataDto keyData = keyDataService.createDataKey(alias);
+        KeyDataDto keyData = keyDataService.generateDataKey(alias);
 
-        log.debug("createDataKey: -> " + keyData);
+        log.debug("generateDataKe: -> " + keyData);
         return new ResponseEntity<>(keyData, HttpStatus.OK);
     }
 

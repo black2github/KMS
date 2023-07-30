@@ -188,16 +188,22 @@ public class KeyDataServiceImpl implements KeyDataService {
         changeStatus(key, KeyStatus.PENDING_DELETION);
     }
 
+    /**
+     * Генерация ключа шифрования данных
+     * @param alias - алиас ключа в хранилище.
+     * @return KeyDataDto - сгенерированный ключ.
+     */
     @Override
     @Transactional
-    public KeyDataDto createDataKey(String alias) {
+    public KeyDataDto generateDataKey(String alias) {
+        KeyDataDto master = null;
+
         log.info(String.format("createDataKey: <- alias='%s'", alias));
         //
         // Найти подходящий мастер-ключ в оперативном хранилище
         //
         List<KeyData> keys = keyDataRepository.findByKeyTypeAndPurposeTypeAndStatus(
                 KeyType.PUBLIC, PurposeType.KEK, KeyStatus.ENABLED);
-        KeyDataDto master = null;
         for (KeyData key : keys) {
             log.debug("createDataKey: Проверка ключа " + key);
             if ((key.getExpiryDate() != null) && key.getExpiryDate().isAfter(LocalDateTime.now())) {
@@ -219,9 +225,11 @@ public class KeyDataServiceImpl implements KeyDataService {
             String msg = "Не найден ни один актуальный мастер-ключ с неистекшим сроком действия.";
             log.warn(msg);
             throw new KeyNotFoundApplicationException(msg);
+        } else {
+            log.info("Найден подходящий загруженный мастер-ключ: " + master);
         }
 
-        // Получить публичный ключ шифрования ключей (KEK)
+        // Получить публичный ключ шифрования ключей из мастера (KEK)
         PublicKey publicKey = null;
         byte[] rawKey = Base64.getDecoder().decode(master.getKey());
         try {
@@ -244,11 +252,16 @@ public class KeyDataServiceImpl implements KeyDataService {
             throw new KeyGenerationApplicationException("Ошибка шифрования ключа шифрования данных: " + e.getMessage());
         }
 
-        // Сохранить ключ шифрования данных
+        // Сохранить ссылку на ключ шифрования ключей (на мастер)
+        keyData.setEncKey(keyDataRepository.findById(UUID.fromString(master.getId())).get());
+
         try {
-            // keyDataRepository.save(keyData);
-            changeStatus(keyData, KeyStatus.ENABLED);
+            // Сохранить ключ шифрования данных
             keyDataRepository.save(keyData);
+            log.info("Установка статуса для созданного ключа шифрования данных:" + keyData);
+            // установить нужный статус
+            changeStatus(keyData, KeyStatus.ENABLED);
+            // keyDataRepository.save(keyData);
         } catch (Exception e) {
             throw new KeyPersistApplicationException("Ошибка сохранения ключа шифрования данных: " + e.getMessage());
         }
@@ -603,12 +616,6 @@ public class KeyDataServiceImpl implements KeyDataService {
         log.info(String.format("changeStatus: <- key = '%s', new status = '%s'", key, newStatus));
 
         // проверяем, что можно переходить в указанный статус
-        log.info("statusMap:");
-        Set<KeyStatus> set = statusMap.keySet();
-        for (KeyStatus s: set) {
-            log.info("-> " + s.toString() + ", -- " + statusMap.get(s));
-        }
-
         if (statusMap.get(key.getStatus()).contains(newStatus)) {
             key.setStatus(newStatus);
         } else {

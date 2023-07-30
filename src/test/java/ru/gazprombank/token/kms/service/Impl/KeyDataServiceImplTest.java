@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.core.parameters.P;
 import org.springframework.security.test.context.support.WithUserDetails;
 import ru.gazprombank.token.kms.entity.Dto.KeyDataDto;
 import ru.gazprombank.token.kms.entity.KeyData;
@@ -25,8 +26,10 @@ import java.util.Random;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.failBecauseExceptionWasNotThrown;
+import static org.assertj.core.api.InstanceOfAssertFactories.type;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 
@@ -120,10 +123,7 @@ class KeyDataServiceImplTest {
                     masterKeyData.getExpiryDate(), "passwd2".toCharArray(), masterKeyData.getNotifyDate());
             failBecauseExceptionWasNotThrown(InvalidPasswordApplicationException.class);
         } catch (Exception ex) {
-
             // then should fail
-
-
         }
         // clean
         keyDataRepository.deleteById(id);
@@ -137,7 +137,7 @@ class KeyDataServiceImplTest {
         log.info("loadMasterKey1: <- .");
         masterKeyData = null;
         List<KeyDataDto> ks = keyDataService.listAll();
-        for (KeyDataDto k: ks) {
+        for (KeyDataDto k : ks) {
             log.info("loadMasterKey1: = " + k);
         }
         List<KeyData> keys = keyDataRepository.findByKeyTypeAndPurposeTypeAndStatus(KeyType.PRIVATE, PurposeType.KEK, KeyStatus.ENABLED);
@@ -176,17 +176,75 @@ class KeyDataServiceImplTest {
     @Test
     @Order(6)
     @WithUserDetails(value = "admin")
-    void createDataKey() {
-        KeyDataDto k = keyDataService.createDataKey("alias" + r.nextInt(1000));
+    void generateDataKey() {
+        KeyDataDto k = keyDataService.generateDataKey("alias" + r.nextInt(1000));
         assertNotNull(k);
+
+        // clean
+        keyDataRepository.deleteById(UUID.fromString(k.getId()));
     }
 
     @Test
     @Order(7)
     void listAll() {
         List<KeyDataDto> keys = keyDataService.listAll();
-        for (KeyDataDto key: keys) {
+        for (KeyDataDto key : keys) {
             log.info("->: " + key);
         }
     }
+
+    @Test
+    @Order(8)
+    @WithUserDetails(value = "admin")
+    void changeKeyStatus() {
+        // given
+
+        // when
+        KeyDataDto k = keyDataService.generateDataKey("alias" + r.nextInt(1000));
+        assertNotNull(k);
+
+        // then
+        try {
+            keyDataService.changeStatus(k.getId(), KeyStatus.ENABLED);
+            keyDataService.changeStatus(k.getId(), KeyStatus.DISABLED);
+            keyDataService.changeStatus(k.getId(), KeyStatus.PENDING_DELETION);
+            keyDataService.changeStatus(k.getId(), KeyStatus.DISABLED);
+            keyDataService.changeStatus(k.getId(), KeyStatus.UNAVAILABLE);
+            keyDataService.changeStatus(k.getId(), KeyStatus.PENDING_IMPORT);
+            keyDataService.changeStatus(k.getId(), KeyStatus.UNAVAILABLE);
+            keyDataService.changeStatus(k.getId(), KeyStatus.ENABLED);
+            keyDataService.changeStatus(k.getId(), KeyStatus.PENDING_IMPORT);
+            keyDataService.changeStatus(k.getId(), KeyStatus.ENABLED);
+            keyDataService.changeStatus(k.getId(), KeyStatus.PENDING_DELETION);
+        } catch (Exception ex) {
+            fail(ex);
+        }
+        KeyData k2 = keyDataRepository.findById(UUID.fromString(k.getId())).orElse(null);
+        assertNotNull(k2);
+        assertSame(k2.getStatus(), KeyStatus.PENDING_DELETION);
+
+        // clean
+        keyDataRepository.deleteById(UUID.fromString(k.getId()));
+    }
+
+    @Test
+    @Order(9)
+    @WithUserDetails(value = "admin")
+    void createManyDataKey() {
+        KeyDataDto[] keys = new KeyDataDto[3];
+        try {
+            for (int i = 0; i < keys.length; i++) {
+                keys[i] = keyDataService.generateDataKey("alias" + r.nextInt(1000));
+                assertNotNull(keys[i]);
+            }
+        } catch (Exception e) {
+            fail(e.getMessage());
+        }
+
+        // clean
+        for (int i = 0; i < keys.length; i++) {
+            keyDataService.delete(keys[i].getId());
+        }
+    }
+
 }

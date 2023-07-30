@@ -1,12 +1,16 @@
 package ru.gazprombank.token.kms.entity;
 
+import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
+import jakarta.persistence.Converter;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
@@ -67,7 +71,7 @@ public class KeyData {
     /**
      * Key expiration date and time.
      */
-    @NotNull(message = "Реквизит 'Срок действия' является обязателным")
+    @NotNull(message = "Реквизит 'Срок действия' является обязательным")
     @Column(name = "expiry_date")
     private LocalDateTime expiryDate;
 
@@ -87,9 +91,9 @@ public class KeyData {
     /**
      * Key type.
      */
-
     @NotNull(message = "Реквизит 'Тип ключа' является обязательным")
     @Column(name = "type", length = 16, nullable = false)
+    @Convert(converter = KeyTypeConverter.class)
     private KeyType keyType;
 
     /**
@@ -97,6 +101,7 @@ public class KeyData {
      */
     @NotNull(message = "Реквизит 'Тип назначения' является обязательным")
     @Column(name = "purpose", length = 5, nullable = false)
+    @Convert(converter = PurposeTypeConverter.class)
     private PurposeType purposeType;
 
     /**
@@ -117,9 +122,8 @@ public class KeyData {
     /**
      * Status.
      */
-    // @Pattern(message = "Invalid Status name", regexp = "[0-9\\w_]+")
-    // @Length(message = "Invalid Status length", min = 3, max = 16)
     @Column(name = "status", length = 16, nullable = false)
+    @Convert(converter = KeyStatusConverter.class)
     private KeyStatus status;
 
     @OneToMany(mappedBy = "key", cascade = CascadeType.ALL)
@@ -129,9 +133,8 @@ public class KeyData {
      * Encrypted by the key.
      */
     @ToString.Exclude
-    @OneToOne(fetch = jakarta.persistence.FetchType.LAZY)
-    @JoinColumn
-    @Fetch(FetchMode.JOIN)
+    @ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
+    @JoinColumn(name = "enc_key_id")
     private KeyData encKey;
 
     /**
@@ -186,5 +189,74 @@ public class KeyData {
         result = 31 * result + (getCreatedDate() != null ? getCreatedDate().hashCode() : 0);
         result = 31 * result + (getEncKey() != null ? getEncKey().hashCode() : 0);
         return result;
+    }
+}
+
+@Converter
+class KeyTypeConverter implements AttributeConverter<KeyType, String> {
+    @Override
+    public String convertToDatabaseColumn(KeyType keyType) {
+        switch (keyType) {
+            case PUBLIC: return "PUBLIC";
+            case PRIVATE: return "PRIVATE";
+            default: return "SYMMETRIC";
+        }
+    }
+    @Override
+    public KeyType convertToEntityAttribute(String s) {
+        switch (s) {
+            case "PUBLIC": return KeyType.PUBLIC;
+            case "PRIVATE": return KeyType.PRIVATE;
+            default: return KeyType.SYMMETRIC;
+        }
+    }
+}
+@Converter
+class PurposeTypeConverter implements AttributeConverter<PurposeType, String> {
+    @Override
+    public String convertToDatabaseColumn(PurposeType type) {
+        switch (type) {
+            case KEK: return "KEK";
+            case DEK: return "DEK";
+            case CEK: return "CEK";
+            default: return "SIG";
+        }
+    }
+    @Override
+    public PurposeType convertToEntityAttribute(String s) {
+        switch (s) {
+            case "KEK": return PurposeType.KEK;
+            case "DEK": return PurposeType.DEK;
+            case "CEK": return PurposeType.CEK;
+            default: return PurposeType.SIG;
+        }
+    }
+}
+
+@Converter
+class KeyStatusConverter implements AttributeConverter<KeyStatus, String> {
+    @Override
+    public String convertToDatabaseColumn(KeyStatus type) {
+        switch (type) {
+            case ENABLED: return "ENABLED";
+            case DISABLED: return "DISABLED";
+            case UNAVAILABLE: return "UNAVAILABLE";
+            case PENDING_IMPORT: return "PENDING_IMPORT";
+            case PENDING_DELETION: return "PENDING_DELETION";
+            case PENDING_CREATION: return "PENDING_CREATION";
+            default: return "NONE";
+        }
+    }
+    @Override
+    public KeyStatus convertToEntityAttribute(String s) {
+        switch (s) {
+            case "ENABLED": return KeyStatus.ENABLED;
+            case "DISABLED": return KeyStatus.DISABLED;
+            case "UNAVAILABLE": return KeyStatus.UNAVAILABLE;
+            case "PENDING_IMPORT": return KeyStatus.PENDING_IMPORT;
+            case "PENDING_DELETION": return KeyStatus.PENDING_DELETION;
+            case "PENDING_CREATION": return KeyStatus.PENDING_CREATION;
+            default: return KeyStatus.NONE;
+        }
     }
 }

@@ -2,6 +2,7 @@ package ru.gazprombank.token.kms.service;
 
 import ru.gazprombank.token.kms.entity.Dto.KeyDataDto;
 import ru.gazprombank.token.kms.entity.KeyData;
+import ru.gazprombank.token.kms.entity.KeyStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -12,6 +13,7 @@ public interface KeyDataService {
     List<KeyDataDto> listAll();
 
     void updateKeyData(String id, KeyDataDto keyDataDto);
+    void changeStatus(String id, KeyStatus newStatus);
 
     KeyData saveKeyData(KeyDataDto keyDataDto);
 
@@ -22,7 +24,7 @@ public interface KeyDataService {
      * @param alias
      * @return
      */
-    KeyDataDto createDataKey(String alias);
+    KeyDataDto generateDataKey(String alias);
 
     /**
      * Загрузка мастер-ключа.
