@@ -190,6 +190,7 @@ public class KeyDataServiceImpl implements KeyDataService {
 
     /**
      * Генерация ключа шифрования данных
+     *
      * @param alias - алиас ключа в хранилище.
      * @return KeyDataDto - сгенерированный ключ.
      */
@@ -331,7 +332,6 @@ public class KeyDataServiceImpl implements KeyDataService {
         } catch (InvalidPasswordApplicationException ex) {
             // проблема с паролями - ставим ключу статус "недоступен"
             // TODO скорей всего не сработает из-за обработки в рамках исключения
-            // key.setStatus(KeyStatus.UNAVAILABLE);
             changeStatus(key, KeyStatus.UNAVAILABLE);
             throw ex;
         }
@@ -379,7 +379,7 @@ public class KeyDataServiceImpl implements KeyDataService {
     }
 
     /*
-     * Проверка ограничений пароля.
+     * Проверка ограничений пароля и преобразование паролей для дальнейшего использования
      */
     private KeyPassword checkPassword(UUID id, char[] password) {
 
@@ -419,8 +419,30 @@ public class KeyDataServiceImpl implements KeyDataService {
 
         // реквизит Пароль КИ.Часть 2 устанавливается в значение <пароль> и реквизит Пароль КИ.Пользователь 2
         // устанавливается равным идентификатору текущего пользователя.
-        keyPassword.setPart2(password);
         keyPassword.setUser2(getUserInfo());
+        keyPassword.setPart2(password);
+
+        //
+        // преобразование паролей пользвателя 1 и пользователя 2 через XOR
+        //
+        int maxLength = Math.max(keyPassword.getPart1().length, keyPassword.getPart2().length);
+        char[] result = new char[maxLength];
+
+        for (int i = 0; i < maxLength; i++) {
+            char value1 = (i < keyPassword.getPart1().length) ? keyPassword.getPart1()[i] : 0;
+            char value2 = (i < keyPassword.getPart2().length) ? keyPassword.getPart2()[i] : 0;
+            result[i] = (char) (value1 ^ value2);
+        }
+
+        // установка паролей в новые значения
+        keyPassword.setPart1(new char[result.length / 2]);
+        for (int i = 0; i < keyPassword.getPart1().length; i++) {
+            keyPassword.getPart1()[i] = result[i];
+        }
+        keyPassword.setPart2(new char[result.length - keyPassword.getPart1().length]);
+        for (int i = 0; i < keyPassword.getPart2().length; i++) {
+            keyPassword.getPart2()[i] = result[i + keyPassword.getPart1().length];
+        }
 
         return keyPassword;
     }
