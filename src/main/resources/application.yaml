@@ -50,18 +50,15 @@ springdoc:
   default-produces-media-type: application/json
 
 kms:
-  #storePassword: storePassword
-  #keyPassword: keyPassword
-  # storeURI: "file:///C:/work/JavaProjects/GazpromBank/KMS/masterKeystore.jks"
+  # Каталог хранения файлов с ключами и сертификатами. Выполняет роль хранилища,
+  # отличного от хранилища других ключей и токенов (по PCI DSS).
   storeURI: "file:///C:/work/JavaProjects/GazpromBank/KMS/"
-  #password1: Password1
-  #password2: Password2
   key:
     ttl:
-      # число лет по типу
+      # число лет до протухания ключа по умолчанию в зависимости от типа
       KEK: 10
       DEK: 5
   token:
     ttl:
-      # число секунд по типу
+      # число секунд хранения токена по умолчанию в зависимости от типа его основы
       PAN: 3600
