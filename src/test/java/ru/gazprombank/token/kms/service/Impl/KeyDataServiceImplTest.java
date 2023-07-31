@@ -28,6 +28,7 @@ import java.util.Random;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.failBecauseExceptionWasNotThrown;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -270,6 +271,7 @@ class KeyDataServiceImplTest {
 
     @Test
     @Order(11)
+    @WithUserDetails(value = "user")
     void secret2Token2Secret() {
         // given
         String pan = "1111222233334444";
@@ -277,10 +279,28 @@ class KeyDataServiceImplTest {
         // when
         String token = tokenService.secret2Token(pan, TokenType.PAN, null);
         assertNotNull(token);
-        log.info("token = '" + token + "'");
+        log.info("secret2Token2Secret: token = '" + token + "'");
         String secret = tokenService.token2Secret(token);
 
         // then
-        assertTrue(pan.equals(secret));
+        assertEquals(pan, secret);
+    }
+
+    @Test
+    @Order(12)
+    @WithUserDetails(value = "user")
+    void shouldReturnTheSameToken() {
+        // given
+        Random r = new Random();
+        String pan = "111122223333" + r.nextInt(10000);
+
+        // when
+        String token = tokenService.secret2Token(pan, TokenType.PAN, null);
+        assertNotNull(token);
+        log.info("shouldReturnTheSameToken: token = '" + token + "'");
+        String token2 = tokenService.secret2Token(pan, TokenType.PAN, null);
+
+        // then
+        assertEquals(token, token2);
     }
 }

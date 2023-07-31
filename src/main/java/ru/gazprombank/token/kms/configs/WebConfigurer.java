@@ -78,6 +78,10 @@ public class WebConfigurer {
                 .password(bCryptPasswordEncoder.encode("{noop}masterPass2"))
                 .roles("MASTER", "USER", "ADMIN")
                 .build());
+        manager.createUser(User.withUsername("KMS")
+                .password(bCryptPasswordEncoder.encode("{noop}kmsPass"))
+                .roles("ADMIN", "MASTER", "KMS")
+                .build());
 
         return manager;
     }

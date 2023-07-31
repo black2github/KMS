@@ -1,6 +1,7 @@
 package ru.gazprombank.token.kms.entity;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -39,6 +40,7 @@ public class KeyDataHistory {
     private LocalDateTime createdDate;
 
     @Column(name = "status", length = 16, nullable = false)
+    @Convert(converter = KeyStatusConverter.class)
     private KeyStatus status;
 
     @Column(name = "principal", length = 16, nullable = false)

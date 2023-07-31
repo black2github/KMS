@@ -1,10 +1,8 @@
 package ru.gazprombank.token.kms.entity;
 
-import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
-import jakarta.persistence.Converter;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -16,7 +14,6 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Pattern;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -24,14 +21,10 @@ import lombok.ToString;
 import lombok.experimental.Accessors;
 import org.hibernate.annotations.Fetch;
 import org.hibernate.annotations.FetchMode;
-import org.hibernate.validator.constraints.Length;
 
-import java.security.Key;
 import java.time.LocalDateTime;
-import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -127,6 +120,7 @@ public class KeyData {
     private KeyStatus status;
 
     @OneToMany(mappedBy = "key", cascade = CascadeType.ALL)
+    @ToString.Exclude
     private List<KeyDataHistory> history = new LinkedList<>();
 
     /**
@@ -189,74 +183,5 @@ public class KeyData {
         result = 31 * result + (getCreatedDate() != null ? getCreatedDate().hashCode() : 0);
         result = 31 * result + (getEncKey() != null ? getEncKey().hashCode() : 0);
         return result;
-    }
-}
-
-@Converter
-class KeyTypeConverter implements AttributeConverter<KeyType, String> {
-    @Override
-    public String convertToDatabaseColumn(KeyType keyType) {
-        switch (keyType) {
-            case PUBLIC: return "PUBLIC";
-            case PRIVATE: return "PRIVATE";
-            default: return "SYMMETRIC";
-        }
-    }
-    @Override
-    public KeyType convertToEntityAttribute(String s) {
-        switch (s) {
-            case "PUBLIC": return KeyType.PUBLIC;
-            case "PRIVATE": return KeyType.PRIVATE;
-            default: return KeyType.SYMMETRIC;
-        }
-    }
-}
-@Converter
-class PurposeTypeConverter implements AttributeConverter<PurposeType, String> {
-    @Override
-    public String convertToDatabaseColumn(PurposeType type) {
-        switch (type) {
-            case KEK: return "KEK";
-            case DEK: return "DEK";
-            case CEK: return "CEK";
-            default: return "SIG";
-        }
-    }
-    @Override
-    public PurposeType convertToEntityAttribute(String s) {
-        switch (s) {
-            case "KEK": return PurposeType.KEK;
-            case "DEK": return PurposeType.DEK;
-            case "CEK": return PurposeType.CEK;
-            default: return PurposeType.SIG;
-        }
-    }
-}
-
-@Converter
-class KeyStatusConverter implements AttributeConverter<KeyStatus, String> {
-    @Override
-    public String convertToDatabaseColumn(KeyStatus type) {
-        switch (type) {
-            case ENABLED: return "ENABLED";
-            case DISABLED: return "DISABLED";
-            case UNAVAILABLE: return "UNAVAILABLE";
-            case PENDING_IMPORT: return "PENDING_IMPORT";
-            case PENDING_DELETION: return "PENDING_DELETION";
-            case PENDING_CREATION: return "PENDING_CREATION";
-            default: return "NONE";
-        }
-    }
-    @Override
-    public KeyStatus convertToEntityAttribute(String s) {
-        switch (s) {
-            case "ENABLED": return KeyStatus.ENABLED;
-            case "DISABLED": return KeyStatus.DISABLED;
-            case "UNAVAILABLE": return KeyStatus.UNAVAILABLE;
-            case "PENDING_IMPORT": return KeyStatus.PENDING_IMPORT;
-            case "PENDING_DELETION": return KeyStatus.PENDING_DELETION;
-            case "PENDING_CREATION": return KeyStatus.PENDING_CREATION;
-            default: return KeyStatus.NONE;
-        }
     }
 }

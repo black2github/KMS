@@ -42,19 +42,22 @@ public class TokenServiceImpl implements TokenService {
     /**
      * Преобразовать секретные данные в токен.
      *
-     * @param secret     строка с оригинальными секретными данными.
-     * @param type       тип токена, по умолчанию PAN.
-     * @param expiryDate дата протухания токена. В случае отсутствия - используется 1 год от текущей даты.
+     * @param secret строка с оригинальными секретными данными.
+     * @param type   тип токена, по умолчанию PAN.
+     * @param ttl    число секунд до протухания токена. В случае отсутствия - используется 1 год от текущей даты.
      * @return строка с идентификатором токена.
      */
     @Override
     @Transactional
-    public String secret2Token(String secret, TokenType type, LocalDateTime expiryDate) {
+    public String secret2Token(String secret, TokenType type, Long ttl) {
         log.info("secret2Token: <- type=" + type);
 
         // Поиск токена среди уже существующих
         String tokenId = findAlike(secret, type);
-        if (tokenId != null) return tokenId;
+        if (tokenId != null) {
+            // TODO игнорируется ttl, корректно ли это?
+            return tokenId;
+        }
 
         // Создание токена
         Token token = new Token().builder()
@@ -62,16 +65,20 @@ public class TokenServiceImpl implements TokenService {
                 .type(type)
                 .build();
         if (type == TokenType.PAN) {
+            if (secret == null || !secret.matches("[0-9]{16,19}"))
+                throw new InvalidArgumentApplicationException("PAN должен иметь от 16 до 19 цифр");
             token.setIndex(maskPan(secret));
-            if (expiryDate != null) {
-                token.setExpiryDate(expiryDate);
+            if (ttl != null) {
+                token.setExpiryDate(LocalDateTime.now().plusSeconds(ttl));
             } else {
                 // взять время из настройки.
                 try {
                     String sec = env.getProperty("kms.token.ttl.PAN");
+                    // log.info(String.format("kms.token.ttl.PAN = %d, now=%s", Long.parseLong(sec), LocalDateTime.now()));
                     token.setExpiryDate(LocalDateTime.now().plusSeconds(Long.parseLong(sec)));
+                    // log.info(String.format("новая дата %s", token.getExpiryDate()));
                 } catch (Exception ex) {
-                    log.warn("secret2Token: Неверный формат настройки kms.token.ttl.PAN. Установлено по умолчанию - 1 год.");
+                    log.warn(String.format("secret2Token: Неверный формат настройки kms.token.ttl.PAN (%s). Установлено по умолчанию - 1 год.", ex.getMessage()));
                     token.setExpiryDate(LocalDateTime.now().plusYears(1));
                 }
             }
@@ -84,15 +91,22 @@ public class TokenServiceImpl implements TokenService {
         if (keys.isEmpty())
             throw new KeyNotFoundApplicationException("Не найден подходящий ключ шифрования данных");
 
-        // Берем первый доступный ключ
-        KeyData key = keys.get(0);
-        try {
-            SecretKey dataKey = keyDataService.decodeDataKey(key.getId());
-            token.setSecret(KeyGenerator.encryptData(secret, dataKey));
-        } catch (Exception ex) {
-            log.error("secret2Token: Ошибка создания токена:" + ex.getMessage());
-            throw new SecurityApplicationException("Ошибка создания токена:" + ex.getMessage());
+        // Перебираем ключи шифрования данных
+        KeyData key = null;
+        for (KeyData k : keys) {
+            try {
+                SecretKey dataKey = keyDataService.decodeDataKey(k.getId());
+                token.setSecret(KeyGenerator.encryptData(secret, dataKey));
+                key = k;
+            } catch (Exception ex) {
+                log.warn("secret2Token: Ошибка создания токена:" + ex.getMessage());
+                // переходим к следующему ключу
+            }
         }
+        if (key == null) {
+            throw new SecurityApplicationException("Ошибка создания токена: Не найден ни один подходящий ключ шифрования данных");
+        }
+
         // Сохранение ссылки на ключ шифрования
         token.setKey(key);
         tokenRepository.saveAndFlush(token);
@@ -103,7 +117,9 @@ public class TokenServiceImpl implements TokenService {
     }
 
     private String maskPan(String pan) {
-        return "******" + pan.substring(6, pan.length() - 4) + "****";
+        return pan.substring(0, 6)
+                + pan.substring(6, pan.length() - 4).replaceAll("[0-9]", "*")
+                + pan.substring(pan.length() - 4);
     }
 
     /**
@@ -147,6 +163,8 @@ public class TokenServiceImpl implements TokenService {
      * В случае нахождения - возврат идентификатора токена.
      */
     private String findAlike(String sec, TokenType type) {
+        log.info("findAlike: <- ");
+
         if (type == TokenType.PAN) {
             // поиск по маске
             String mask = maskPan(sec);
@@ -154,9 +172,10 @@ public class TokenServiceImpl implements TokenService {
             if (tokens.isEmpty()) return null;
             // найдены потенциально похожие записи
             for (Token token : tokens) {
-                // расшифровываем каждый токен для сравнения
-                SecretKey secretKey = keyDataService.decodeDataKey(token.getKey().getId());
                 try {
+                    // расшифровываем каждый токен для сравнения
+                    SecretKey secretKey = keyDataService.decodeDataKey(token.getKey().getId());
+
                     String sec2 = KeyGenerator.decryptData(token.getSecret(), secretKey);
                     if (sec.equals(sec2)) {
                         // возвращаем идентификатор существующего токена

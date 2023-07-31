@@ -51,6 +51,18 @@ public class KeyDataController {
     }
 
     /**
+     * Получение списка всех ключей.
+     *
+     * @return
+     */
+    @GetMapping("/cache")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<String>> listCache() {
+        log.info("list: <- ");
+        return new ResponseEntity<>(keyDataService.listCache(), HttpStatus.OK);
+    }
+
+    /**
      * Генерация мастер-ключа через POST JSON запроса и пароля.
      *
      * @param formData

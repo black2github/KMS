@@ -56,3 +56,12 @@ kms:
   storeURI: "file:///C:/work/JavaProjects/GazpromBank/KMS/"
   password1: Password1
   password2: Password2
+  key:
+    ttl:
+      # число лет по типу
+      KEK: 10
+      DEK: 5
+  token:
+    ttl:
+      # число секунд по типу
+      PAN: 3600

@@ -13,6 +13,8 @@ public interface KeyDataService {
 
     List<KeyDataDto> listAll();
 
+    List<String> listCache();
+
     void updateKeyData(String id, KeyDataDto keyDataDto);
     void changeStatus(String id, KeyStatus newStatus);
 
