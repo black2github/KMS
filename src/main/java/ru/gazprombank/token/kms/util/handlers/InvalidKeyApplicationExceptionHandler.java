@@ -13,6 +13,7 @@ public class InvalidKeyApplicationExceptionHandler extends AbstractExceptionHand
 
     @ExceptionHandler(InvalidKeyApplicationException.class)
     public ResponseEntity<ErrorResponseDto> invalidKeyApplicationException(final InvalidKeyApplicationException ex) {
+        // buildErrorResponse(ex, HttpStatus.  HttpStatus.BAD_REQUEST);
         return buildErrorResponse(ex, HttpStatus.BAD_REQUEST);
     }
 }

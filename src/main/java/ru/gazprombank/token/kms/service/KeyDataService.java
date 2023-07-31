@@ -11,15 +11,38 @@ import java.util.UUID;
 
 public interface KeyDataService {
 
+    /**
+     * Список всех ключей.
+     * @return
+     */
     List<KeyDataDto> listAll();
 
+    /**
+     * Список идентификаторов ключей в оепративном доступе.
+     * @return
+     */
     List<String> listCache();
 
+    /**
+     * Обновление атрибутов ключа.
+     * @param id строка с идентификатором ключа.
+     * @param keyDataDto
+     */
     void updateKeyData(String id, KeyDataDto keyDataDto);
+
+    /**
+     * Изменение статуса ключа.
+     * @param id строка с идентификатором ключа.
+     * @param newStatus
+     */
     void changeStatus(String id, KeyStatus newStatus);
 
     KeyData saveKeyData(KeyDataDto keyDataDto);
 
+    /**
+     * Отметить ключ на удаление.
+     * @param uid
+     */
     void delete(String uid);
 
     /**

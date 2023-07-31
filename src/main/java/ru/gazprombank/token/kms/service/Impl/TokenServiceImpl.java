@@ -86,7 +86,7 @@ public class TokenServiceImpl implements TokenService {
             throw new InvalidArgumentApplicationException("Типы токенов, отличные от PAN, пока не поддерживаются");
         }
 
-        // Получить ключ шифрования данных
+        // Получить список приемлемых ключей шифрования данных
         List<KeyData> keys = keyDataRepository.findByKeyTypeAndPurposeTypeAndStatus(KeyType.SYMMETRIC, PurposeType.DEK, KeyStatus.ENABLED);
         if (keys.isEmpty())
             throw new KeyNotFoundApplicationException("Не найден подходящий ключ шифрования данных");

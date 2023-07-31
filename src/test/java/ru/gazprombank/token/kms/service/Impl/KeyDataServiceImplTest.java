@@ -31,7 +31,6 @@ import static org.assertj.core.api.Assertions.failBecauseExceptionWasNotThrown;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 
@@ -292,8 +291,8 @@ class KeyDataServiceImplTest {
     void shouldReturnTheSameToken() {
         // given
         Random r = new Random();
-        String pan = "111122223333" + r.nextInt(10000);
-
+        String pan = "111122223333" + String.format("%04d", r.nextInt(10000));
+        log.info("shouldReturnTheSameToken: token <- '" + pan + "'");
         // when
         String token = tokenService.secret2Token(pan, TokenType.PAN, null);
         assertNotNull(token);

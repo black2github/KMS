@@ -3,7 +3,6 @@ package ru.gazprombank.token.kms.service.Impl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -69,10 +68,6 @@ public class KeyDataServiceImpl implements KeyDataService {
     private static Map<UUID, KeyPassword> keyPassMap = new HashMap<>();
     // оперативное хранилище ключей (cache)
     private static Map<UUID, KeyDataDto> keyDataMap = new HashMap<>();
-
-    // каталог хранилища ключей (настройка)
-    @Value("${kms.storeURI}")
-    private String storeURI;
 
     @Autowired
     private Environment env;
@@ -649,6 +644,7 @@ public class KeyDataServiceImpl implements KeyDataService {
             keyPair = keyPairGenerator.generateKeyPair();
 
             // Сохранение пары ключей в файловое хранилище ключей
+            String storeURI = env.getProperty("kms.storeURI"); // каталог хранилища ключей (настройка)
             if (KeyGenerator.isValidURI(storeURI)) {
                 // String storeName = KeyGenerator.getFileNameFromURI(new URI(storeURI));
                 // генерация имени файла

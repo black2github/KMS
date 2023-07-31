@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import ru.gazprombank.token.kms.entity.Dto.KeyDataDto;
+import ru.gazprombank.token.kms.entity.KeyStatus;
 import ru.gazprombank.token.kms.entity.KeyType;
 import ru.gazprombank.token.kms.entity.PurposeType;
 import ru.gazprombank.token.kms.service.KeyDataService;
@@ -63,6 +65,20 @@ public class KeyDataController {
     }
 
     /**
+     * Отметка об удалении на ключе.
+     *
+     * @param id
+     * @return
+     */
+    @DeleteMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> delete(@RequestBody String id) {
+        log.info("delete: <- id='" + id + "'");
+        keyDataService.delete(id);
+        return new ResponseEntity<>(HttpStatus.OK);
+    }
+
+    /**
      * Генерация мастер-ключа через POST JSON запроса и пароля.
      *
      * @param formData
@@ -71,7 +87,7 @@ public class KeyDataController {
     @PostMapping(path = "/master", consumes = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("hasRole('MASTER')")
     public ResponseEntity<KeyDataDto> generateMasterKey(@RequestBody MasterKeyGenerationRequest formData) {
-        log.info(String.format("generateMasterKey: <- key="+formData.getKey()));
+        log.info(String.format("generateMasterKey: <- key=" + formData.getKey()));
 
         char[] password = (formData.getPassword() == null || formData.getPassword().isEmpty())
                 ? null : formData.getPassword().toCharArray();
@@ -129,6 +145,7 @@ public class KeyDataController {
 
     /**
      * Загрузка мастер-ключа в оперативный доступ.
+     *
      * @param id
      * @param password
      * @return
@@ -146,12 +163,13 @@ public class KeyDataController {
 
     /**
      * Создание ключа шифрования данных
+     *
      * @param alias
      * @return
      */
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<KeyDataDto> generateDataKe(@RequestBody String alias) {
+    public ResponseEntity<KeyDataDto> generateDataKey(@RequestBody String alias) {
         log.info("generateDataKe: <- alias=" + alias);
 
         KeyDataDto keyData = keyDataService.generateDataKey(alias);
@@ -161,19 +179,30 @@ public class KeyDataController {
     }
 
     /**
-     * Обновление атрибутов ключа шифрования данных
-     * @param from
+     * Обновление атрибутов ключа шифрования данных.
+     *
+     * @param req
      * @return
      */
     @PutMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> updateKeyData(@RequestBody UpdateKeyDataRequest from) {
-        log.info("updateDataKey: <- key=" + from);
-
-        keyDataService.updateKeyData(from.getId(), from.getKey());
-
+    public ResponseEntity<Void> updateKeyData(@RequestBody UpdateKeyDataRequest req) {
+        log.info("updateDataKey: <- key=" + req);
+        keyDataService.updateKeyData(req.getId(), req.getKey());
         return new ResponseEntity<>(HttpStatus.OK);
     }
 
-
+    /**
+     * Изменение статуса ключа.
+     *
+     * @param req
+     * @return
+     */
+    @PostMapping("/status")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> changeStatus(@RequestBody ChangeKeyStatusRequest req) {
+        log.info("updateDataKey: <- key=" + req);
+        keyDataService.changeStatus(req.getId(), req.getStatus());
+        return new ResponseEntity<>(HttpStatus.OK);
+    }
 }
