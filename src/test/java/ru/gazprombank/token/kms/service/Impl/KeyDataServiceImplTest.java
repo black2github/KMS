@@ -1,13 +1,12 @@
 package ru.gazprombank.token.kms.service.Impl;
 
+import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.test.context.support.WithUserDetails;
@@ -34,10 +33,10 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.fail;
 
 
+@Slf4j
 @SpringBootTest
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class KeyDataServiceImplTest {
-    private static final Logger log = LoggerFactory.getLogger(KeyDataServiceImplTest.class);
 
     private static final int RANGE = 100;
     private static final Random r = new Random();
@@ -46,7 +45,6 @@ class KeyDataServiceImplTest {
     private KeyDataService keyDataService;
     @Autowired
     private TokenService tokenService;
-
     @Autowired
     private KeyDataRepository keyDataRepository;
 

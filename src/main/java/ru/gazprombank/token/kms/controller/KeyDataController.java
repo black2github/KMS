@@ -7,7 +7,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,14 +19,9 @@ import ru.gazprombank.token.kms.entity.Dto.ChangeKeyStatusRequest;
 import ru.gazprombank.token.kms.entity.Dto.KeyDataDto;
 import ru.gazprombank.token.kms.entity.Dto.MasterKeyGenerationRequest;
 import ru.gazprombank.token.kms.entity.Dto.UpdateKeyDataRequest;
-import ru.gazprombank.token.kms.entity.KeyType;
-import ru.gazprombank.token.kms.entity.PurposeType;
 import ru.gazprombank.token.kms.service.KeyDataService;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -101,47 +95,6 @@ public class KeyDataController {
 
         log.debug("generateMasterKey: -> " + keyData);
 
-        return new ResponseEntity<>(keyData, HttpStatus.OK);
-    }
-
-    /**
-     * Генерация ключа через POST данных формы.
-     *
-     * @param formData
-     * @return
-     */
-    @PostMapping(path = "/master3", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
-    @PreAuthorize("hasRole('MASTER')")
-    public ResponseEntity<KeyDataDto> generateMasterKey3(@RequestBody MultiValueMap<String, String> formData) {
-        log.info(String.format("generateMasterKey3: <- " + formData.toSingleValueMap()));
-
-        Map<String, String> valueMap = formData.toSingleValueMap();
-
-        String value = valueMap.get("id");
-        UUID id = (value == null || value.isEmpty()) ? null : UUID.fromString(value);
-        value = valueMap.get("password");
-        char[] password = (value == null) ? null : value.toCharArray();
-        value = valueMap.get("alias");
-        String alias = (value == null || value.isEmpty()) ? null : value;
-        value = valueMap.get("description");
-        String desc = (value == null || value.isEmpty()) ? null : value;
-        value = valueMap.get("expirationDate");
-        LocalDateTime expirationDate = (value == null || value.isEmpty()) ? null :
-                LocalDateTime.parse(value, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")); //2028-07-26T19:40:22.7440662
-        value = valueMap.get("algorithm");
-        String algorithm = (value == null || value.isEmpty()) ? null : value;
-        value = valueMap.get("notifyDate");
-        LocalDateTime notifyDate = (value == null || value.isEmpty()) ? null :
-                LocalDateTime.parse(value, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
-        value = valueMap.get("keyType");
-        KeyType keyType = (value == null || value.isEmpty()) ? null : KeyType.valueOf(value);
-        value = valueMap.get("purposeType");
-        PurposeType purposeType = (value == null || value.isEmpty()) ? null : PurposeType.valueOf(value);
-
-        KeyDataDto keyData = keyDataService.generateMasterKey(
-                id, alias, desc, expirationDate, password, notifyDate);
-
-        log.debug("generateMasterKey3: -> " + keyData);
         return new ResponseEntity<>(keyData, HttpStatus.OK);
     }
 
