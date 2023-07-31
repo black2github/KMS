@@ -2,6 +2,8 @@ package ru.gazprombank.token.kms.service.Impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.gazprombank.token.kms.entity.KeyData;
@@ -22,7 +24,6 @@ import ru.gazprombank.token.kms.util.exceptions.TokenNotFoundApplicationExceptio
 
 import javax.crypto.SecretKey;
 import java.time.LocalDateTime;
-import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -35,18 +36,25 @@ public class TokenServiceImpl implements TokenService {
     private final KeyDataRepository keyDataRepository;
     private final KeyDataService keyDataService;
 
+    @Autowired
+    private Environment env;
+
     /**
      * Преобразовать секретные данные в токен.
      *
-     * @param secret
-     * @param type
-     * @param expiryDate
-     * @return
+     * @param secret     строка с оригинальными секретными данными.
+     * @param type       тип токена, по умолчанию PAN.
+     * @param expiryDate дата протухания токена. В случае отсутствия - используется 1 год от текущей даты.
+     * @return строка с идентификатором токена.
      */
     @Override
     @Transactional
     public String secret2Token(String secret, TokenType type, LocalDateTime expiryDate) {
         log.info("secret2Token: <- type=" + type);
+
+        // Поиск токена среди уже существующих
+        String tokenId = findAlike(secret, type);
+        if (tokenId != null) return tokenId;
 
         // Создание токена
         Token token = new Token().builder()
@@ -58,8 +66,17 @@ public class TokenServiceImpl implements TokenService {
             if (expiryDate != null) {
                 token.setExpiryDate(expiryDate);
             } else {
-                token.setExpiryDate(LocalDateTime.now().plusYears(1));
+                // взять время из настройки.
+                try {
+                    String sec = env.getProperty("kms.token.ttl.PAN");
+                    token.setExpiryDate(LocalDateTime.now().plusSeconds(Long.parseLong(sec)));
+                } catch (Exception ex) {
+                    log.warn("secret2Token: Неверный формат настройки kms.token.ttl.PAN. Установлено по умолчанию - 1 год.");
+                    token.setExpiryDate(LocalDateTime.now().plusYears(1));
+                }
             }
+        } else {
+            throw new InvalidArgumentApplicationException("Типы токенов, отличные от PAN, пока не поддерживаются");
         }
 
         // Получить ключ шифрования данных
@@ -92,8 +109,8 @@ public class TokenServiceImpl implements TokenService {
     /**
      * Получить по токену секретные данные.
      *
-     * @param id
-     * @return
+     * @param id строковое представляние токена.
+     * @return строка с оригинальными секретными данными.
      */
     @Override
     public String token2Secret(String id) {
@@ -113,7 +130,7 @@ public class TokenServiceImpl implements TokenService {
                 () -> new TokenNotFoundApplicationException("Токен с идентификатором '" + id + "' не найден."));
         // Взять ключ шифрования данных, которым зашифрован токен
         KeyData keyData = keyDataRepository.findById(data.getKey().getId()).orElseThrow(
-                () -> new KeyNotFoundApplicationException("Ключ шифрования токена " + data.getKey().getId() + " не найден"));
+                () -> new KeyNotFoundApplicationException("Ключ шифрования '" + data.getKey().getId() + "' токена не найден"));
         // Получить секретный ключ
         SecretKey secretKey = keyDataService.decodeDataKey(keyData.getId());
         // Расшифровать токен
@@ -123,5 +140,35 @@ public class TokenServiceImpl implements TokenService {
             log.error("token2Secret: Ошибка расшифровки токена: " + ex.getMessage());
             throw new SecurityApplicationException("Ошибка расшифровки токена");
         }
+    }
+
+    /*
+     * Поиск среди похожих токенов по индексу.
+     * В случае нахождения - возврат идентификатора токена.
+     */
+    private String findAlike(String sec, TokenType type) {
+        if (type == TokenType.PAN) {
+            // поиск по маске
+            String mask = maskPan(sec);
+            List<Token> tokens = tokenRepository.findByIndex(mask);
+            if (tokens.isEmpty()) return null;
+            // найдены потенциально похожие записи
+            for (Token token : tokens) {
+                // расшифровываем каждый токен для сравнения
+                SecretKey secretKey = keyDataService.decodeDataKey(token.getKey().getId());
+                try {
+                    String sec2 = KeyGenerator.decryptData(token.getSecret(), secretKey);
+                    if (sec.equals(sec2)) {
+                        // возвращаем идентификатор существующего токена
+                        return token.getId().toString();
+                    }
+                } catch (Exception ex) {
+                    log.error("findAlike: Ошибка расшифровки токена " + token.getId());
+                    // ignore
+                }
+            }
+        }
+        // совпадений не найдено
+        return null;
     }
 }
