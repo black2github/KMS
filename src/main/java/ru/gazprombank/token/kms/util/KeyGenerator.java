@@ -1,7 +1,6 @@
 package ru.gazprombank.token.kms.util;
 
 import lombok.experimental.UtilityClass;
-import ru.gazprombank.token.kms.util.exceptions.InvalidKeyApplicationException;
 import ru.gazprombank.token.kms.util.exceptions.InvalidPasswordApplicationException;
 import ru.gazprombank.token.kms.util.exceptions.KeyNotFoundApplicationException;
 import ru.gazprombank.token.kms.util.exceptions.SecurityApplicationException;
@@ -20,6 +19,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
@@ -40,9 +40,12 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 
-// рабочий пример, бери и вставляй кусками в KMS
-
-// @Component
+/**
+ * Key and data encoding keys util class. This class contains the main algorithms working with keys.
+ *
+ * @author Alexey Sen (alexey.sen@gmail.com)
+ * @since 31.07.2023
+ */
 @UtilityClass
 public class KeyGenerator {
     public static final String SYMMETRIC_MASTER_KEY_ALGORITHM = "PBKDF2WithHmacSHA512";
@@ -153,8 +156,7 @@ public class KeyGenerator {
         // Генерация ключевой пары, например, RSA
         KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(ASYMMETRIC_MASTER_KEY_ALGORITHM_TYPE);
         keyPairGenerator.initialize(2048);
-        KeyPair keyPair = keyPairGenerator.generateKeyPair();
-        return keyPair;
+        return keyPairGenerator.generateKeyPair();
     }
 
     /**
@@ -179,7 +181,7 @@ public class KeyGenerator {
         } catch (CertificateException | NoSuchAlgorithmException | KeyStoreException ex) {
             ex.printStackTrace();
             throw new KeyNotFoundApplicationException(
-                    String.format("Ошибка загрузки приватного ключа с алиасом '%s' из хранилища %s:", alias, store, ex.getMessage()));
+                    String.format("Ошибка загрузки приватного ключа с алиасом '%s' из хранилища %s: %s", alias, store, ex.getMessage()));
         } catch (IOException | UnrecoverableKeyException ex) {
             // неверный пароль
             if ((ex.getCause() != null) && (ex.getCause() instanceof UnrecoverableKeyException)) {
@@ -201,7 +203,6 @@ public class KeyGenerator {
      *
      * @param store
      * @param alias
-     * @param storePassword
      * @param storePassword
      * @return
      * @throws IOException
@@ -396,7 +397,7 @@ public class KeyGenerator {
         // Расшифровка данных
         byte[] decryptedDataBytes = cipher.doFinal(encryptedData);
 
-        return new String(decryptedDataBytes, "UTF-8");
+        return new String(decryptedDataBytes, StandardCharsets.UTF_8);
     }
 
     // Генерация соли
@@ -418,10 +419,9 @@ public class KeyGenerator {
         Path path = Path.of(uri);
 
         // Получаем абсолютный путь, включая имя драйвера (если есть)
-        String absolutePath = path.toAbsolutePath().toString();
 
         // Возвращаем абсолютный путь в виде строки
-        return absolutePath;
+        return path.toAbsolutePath().toString();
     }
 
     /**

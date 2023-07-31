@@ -2,7 +2,6 @@ package ru.gazprombank.token.kms.service.Impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -55,6 +54,12 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * Key Data service implementation class.
+ *
+ * @author Alexey Sen (alexey.sen@gmail.com)
+ * @since 31.07.2023
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -63,30 +68,27 @@ public class KeyDataServiceImpl implements KeyDataService {
     private final KeyDataRepository keyDataRepository;
     private final KeyDataMapper keyDataMapper;
     private final KeyDataHistoryRepository keyDataHistoryRepository;
+    private final Environment env;
 
+    // TODO не будет работать в многоинстансовом окружении - следует заменить на адекватную реализацию.
     // хранение мапинга id ключа на пароль на время генерации мастер-ключа
     private static Map<UUID, KeyPassword> keyPassMap = new HashMap<>();
     // оперативное хранилище ключей (cache)
     private static Map<UUID, KeyDataDto> keyDataMap = new HashMap<>();
 
-    @Autowired
-    private Environment env;
-
-    static HashMap<KeyStatus, HashSet> attrMap = new HashMap<>();
-
     // список атрибутов, которые можно менять, в зависимости от статуса
+    private static HashMap<KeyStatus, HashSet<String>> attrMap = new HashMap<>();
     static {
-        attrMap.put(KeyStatus.ENABLED, new HashSet<String>(Arrays.asList("description", "expiryDate", "notifyDate", "relatedKey", "online")));
-        attrMap.put(KeyStatus.DISABLED, new HashSet<String>(Arrays.asList("description", "expiryDate", "notifyDate", "relatedKey", "online")));
-        attrMap.put(KeyStatus.UNAVAILABLE, new HashSet<String>(Arrays.asList("description", "expiryDate", "notifyDate", "relatedKey", "online")));
-        attrMap.put(KeyStatus.PENDING_CREATION, new HashSet<String>(Arrays.asList("alias", "description", "expiryDate", "algorithm", "notifyDate", "online")));
-        attrMap.put(KeyStatus.PENDING_IMPORT, new HashSet<String>(Arrays.asList("description", "expiryDate", "notifyDate", "online")));
-        attrMap.put(KeyStatus.PENDING_DELETION, new HashSet<String>(Arrays.asList("description", "notifyDate")));
+        attrMap.put(KeyStatus.ENABLED, new HashSet<>(Arrays.asList("description", "expiryDate", "notifyDate", "relatedKey", "online")));
+        attrMap.put(KeyStatus.DISABLED, new HashSet<>(Arrays.asList("description", "expiryDate", "notifyDate", "relatedKey", "online")));
+        attrMap.put(KeyStatus.UNAVAILABLE, new HashSet<>(Arrays.asList("description", "expiryDate", "notifyDate", "relatedKey", "online")));
+        attrMap.put(KeyStatus.PENDING_CREATION, new HashSet<>(Arrays.asList("alias", "description", "expiryDate", "algorithm", "notifyDate", "online")));
+        attrMap.put(KeyStatus.PENDING_IMPORT, new HashSet<>(Arrays.asList("description", "expiryDate", "notifyDate", "online")));
+        attrMap.put(KeyStatus.PENDING_DELETION, new HashSet<>(Arrays.asList("description", "notifyDate")));
     }
 
-    static HashMap<KeyStatus, HashSet<KeyStatus>> statusMap = new HashMap<>();
-
     // диаграмма переходов состояний
+    private static HashMap<KeyStatus, HashSet<KeyStatus>> statusMap = new HashMap<>();
     static {
         statusMap.put(KeyStatus.NONE, new HashSet<>(Arrays.asList(KeyStatus.PENDING_CREATION, KeyStatus.ENABLED)));
 
@@ -116,9 +118,9 @@ public class KeyDataServiceImpl implements KeyDataService {
     @Transactional(readOnly = true)
     @Override
     public List<KeyDataDto> listAll() {
-        log.debug("listAll: <-");
+        log.info("listAll: <-");
         List<KeyData> list = keyDataRepository.findAll();
-        log.debug("listAll: -> " + Arrays.toString(list.toArray()));
+        log.info("listAll: -> " + Arrays.toString(list.toArray()));
         return list.stream().map(keyDataMapper::toDto).collect(Collectors.toList());
     }
 
@@ -129,7 +131,8 @@ public class KeyDataServiceImpl implements KeyDataService {
     @Override
     @Transactional(readOnly = true)
     public List<String> listCache() {
-        return keyDataMap.values().stream().map(key -> key.getId()).collect(Collectors.toList());
+        log.info("listCache: <-");
+        return keyDataMap.values().stream().map(KeyDataDto::getId).collect(Collectors.toList());
     }
 
     /**
@@ -147,7 +150,7 @@ public class KeyDataServiceImpl implements KeyDataService {
                 () -> new KeyNotFoundApplicationException("Ключ '" + uid + "' не найден."));
 
         // обновление
-        HashSet attrs = attrMap.get(to.getStatus());
+        HashSet<String> attrs = attrMap.get(to.getStatus());
         if (attrs.contains("alias") && from.getAlias() != null) to.setAlias(from.getAlias());
         if (attrs.contains("description") && from.getDescription() != null) to.setDescription(from.getDescription());
         if (attrs.contains("expiryDate") && from.getExpiryDate() != null) to.setExpiryDate(from.getExpiryDate());
@@ -519,13 +522,18 @@ public class KeyDataServiceImpl implements KeyDataService {
 
         // установка паролей в новые значения
         keyPassword.setPart1(new char[result.length / 2]);
-        for (int i = 0; i < keyPassword.getPart1().length; i++) {
-            keyPassword.getPart1()[i] = result[i];
-        }
+        System.arraycopy(result, 0, keyPassword.getPart1(), 0, keyPassword.getPart1().length);
         keyPassword.setPart2(new char[result.length - keyPassword.getPart1().length]);
-        for (int i = 0; i < keyPassword.getPart2().length; i++) {
-            keyPassword.getPart2()[i] = result[i + keyPassword.getPart1().length];
-        }
+        System.arraycopy(result, 0 + keyPassword.getPart1().length, keyPassword.getPart2(), 0, keyPassword.getPart2().length);
+
+        // for (int i = 0; i < keyPassword.getPart1().length; i++) {
+        //     keyPassword.getPart1()[i] = result[i];
+        // }
+        // keyPassword.setPart2(new char[result.length - keyPassword.getPart1().length]);
+        // for (int i = 0; i < keyPassword.getPart2().length; i++) {
+        //     keyPassword.getPart2()[i] = result[i + keyPassword.getPart1().length];
+        // }
+
 
         return keyPassword;
     }

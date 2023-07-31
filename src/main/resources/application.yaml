@@ -50,12 +50,12 @@ springdoc:
   default-produces-media-type: application/json
 
 kms:
-  storePassword: storePassword
-  keyPassword: keyPassword
+  #storePassword: storePassword
+  #keyPassword: keyPassword
   # storeURI: "file:///C:/work/JavaProjects/GazpromBank/KMS/masterKeystore.jks"
   storeURI: "file:///C:/work/JavaProjects/GazpromBank/KMS/"
-  password1: Password1
-  password2: Password2
+  #password1: Password1
+  #password2: Password2
   key:
     ttl:
       # число лет по типу

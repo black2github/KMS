@@ -8,9 +8,16 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.util.Base64;
 
+/**
+ * RSA encryption example util class.
+ *
+ * @author Alexey Sen (alexey.sen@gmail.com)
+ * @since 31.07.2023
+ */
 public class RSAEncryptionExample {
 
     private static final String MASTER_KEY_ALGORITHM = "RSA";
@@ -140,7 +147,7 @@ public class RSAEncryptionExample {
         // Расшифровка данных
         byte[] decryptedDataBytes = cipher.doFinal(encryptedData);
 
-        return new String(decryptedDataBytes, "UTF-8");
+        return new String(decryptedDataBytes, StandardCharsets.UTF_8);
     }
 
     private static byte[] generateInitializationVector(int size) {

@@ -23,6 +23,12 @@ import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Date;
 
+/**
+ * Certificate and key storage util class.
+ *
+ * @author Alexey Sen (alexey.sen@gmail.com)
+ * @since 31.07.2023
+ */
 // генерация и сохранение в файл самоподписанного сертификата для всяческих тестов.
 @Slf4j
 @UtilityClass
@@ -92,7 +98,7 @@ public class CertificateAndKeyStoreUtil {
     public static X509Certificate generateSelfSignedCertificate(KeyPair keyPair) throws CertificateException {
         // Дата начала и окончания действия сертификата
         Date startDate = new Date(System.currentTimeMillis() - 24 * 60 * 60 * 1000);
-        Date endDate = new Date(System.currentTimeMillis() + 10 * 365 * 24 * 60 * 60 * 1000);
+        Date endDate = new Date(System.currentTimeMillis() + 10L * 365 * 24 * 60 * 60 * 1000);
 
         // Идентификатор сертификата
         BigInteger certSerialNumber = BigInteger.valueOf(System.currentTimeMillis());

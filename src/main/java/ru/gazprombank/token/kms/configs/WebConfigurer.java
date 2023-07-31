@@ -13,16 +13,15 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 
+/**
+ * Spring Security test environment. Used for proof of concept only.
+ */
 @Configuration
-// добавляется DelegatingFilterProxy, его задача заключается в том,
-// чтобы вызвать цепочку фильтров (FilterChainProxy) из Spring Security.
 @EnableWebSecurity
-// позволяет указать одну или несколько аннотаций безопасности, которые будут применены на уровне методов.
 @EnableGlobalMethodSecurity(prePostEnabled = true, securedEnabled = true)
 public class WebConfigurer {
 
     @Bean
-    // public SecurityFilterChain filterChain(HttpSecurity http, HeadersSpyFilter headersSpyFilter) throws Exception {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http.authorizeRequests()
                 .requestMatchers("/keys/**")
@@ -54,7 +53,6 @@ public class WebConfigurer {
     //
     @Bean
     public UserDetailsService userDetailsService(BCryptPasswordEncoder bCryptPasswordEncoder) {
-    // public UserDetailsService userDetailsService() {
 
         InMemoryUserDetailsManager manager = new InMemoryUserDetailsManager();
 

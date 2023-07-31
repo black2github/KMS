@@ -54,14 +54,14 @@ public interface KeyDataService {
 
     /**
      * Создание ключа шифрования данных.
-     * @param alias
+     * @param alias адиас ключа, с которым он будет помещен в хранилище.
      * @return
      */
     KeyDataDto generateDataKey(String alias);
 
     /**
      * Загрузка мастер-ключа.
-     * @param id
+     * @param id идентификатор загружаемого ключа.
      * @param password
      * @return
      */
@@ -69,12 +69,13 @@ public interface KeyDataService {
 
     /**
      * Создание мастер-ключа.
-     * @param id Идентификатор (необязательный)
-     * @param alias Алиас (необязательный)
-     * @param desc Описание (необязательный)
-     * @param expirationDate Срок действия (необязательный)
-     * @param password Пароль
-     * @param notifyDate Срок уведомления об истечении срока действия (необязательный)
+     * @param id Идентификатор ключа. Пустой в случае вызова первым пользователем и содержащий идентификатор
+     *           создаваемого ключа (в статусе "ожидает создания") при вызове вторым пользователем.
+     * @param alias Алиас (необязательный), под которым ключ будет помещен в храналище.
+     * @param desc Описание (необязательный) ключа.
+     * @param expirationDate Срок действия (необязательный). Если не указан, будет взят из настройки.
+     * @param password Пароль для доступа к ключу.
+     * @param notifyDate Срок уведомления об истечении срока действия (необязательный).
      * @return
      */
     KeyDataDto generateMasterKey(UUID id, String alias, String desc, LocalDateTime expirationDate,

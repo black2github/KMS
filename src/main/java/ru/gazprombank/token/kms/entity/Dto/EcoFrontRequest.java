@@ -1,4 +1,4 @@
-package ru.gazprombank.token.kms.controller;
+package ru.gazprombank.token.kms.entity.Dto;
 
 import lombok.Data;
 

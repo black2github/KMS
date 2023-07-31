@@ -7,9 +7,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import ru.gazprombank.token.kms.entity.Dto.EcoFrontRequest;
 
 import java.io.IOException;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 
 @RestController
@@ -38,7 +40,7 @@ public class URL1Controller {
         data.put("status", "OK");
 
         for ( String key: data.keySet()) {
-            response.addCookie(new Cookie("X-" + key, URLEncoder.encode(data.get(key), "UTF-8")));
+            response.addCookie(new Cookie("X-" + key, URLEncoder.encode(data.get(key), StandardCharsets.UTF_8)));
         }
 
         response.addCookie(new Cookie("X-arg1", "Nikita"));

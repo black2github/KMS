@@ -27,6 +27,12 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Key Data entity class.
+ *
+ * @author Alexey Sen (alexey.sen@gmail.com)
+ * @since 31.07.2023
+ */
 @Entity
 @Getter
 @Setter

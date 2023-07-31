@@ -27,6 +27,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Token service implementation class.
+ *
+ * @author Alexey Sen (alexey.sen@gmail.com)
+ * @since 31.07.2023
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -95,6 +101,7 @@ public class TokenServiceImpl implements TokenService {
         KeyData key = null;
         for (KeyData k : keys) {
             try {
+                // TODO подумать, чтобы заменить на метод без цикла, возвращающий нужынй ключ
                 SecretKey dataKey = keyDataService.decodeDataKey(k.getId());
                 token.setSecret(KeyGenerator.encryptData(secret, dataKey));
                 key = k;

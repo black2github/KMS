@@ -1,8 +1,7 @@
-package ru.gazprombank.token.kms.controller;
+package ru.gazprombank.token.kms.entity.Dto;
 
 import lombok.Builder;
 import lombok.Data;
-import ru.gazprombank.token.kms.entity.Dto.KeyDataDto;
 
 @Data
 @Builder
