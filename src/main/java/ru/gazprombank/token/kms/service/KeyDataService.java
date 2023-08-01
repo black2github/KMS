@@ -80,4 +80,10 @@ public interface KeyDataService {
      */
     KeyDataDto generateMasterKey(UUID id, String alias, String desc, LocalDateTime expirationDate,
                             char[] password, LocalDateTime notifyDate);
+
+
+    /**
+     * Перешифровка ключей шифрования данных.
+     */
+    void rotateDataKey();
 }
