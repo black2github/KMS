@@ -78,6 +78,7 @@ public class KeyDataServiceImpl implements KeyDataService {
 
     // список атрибутов, которые можно менять, в зависимости от статуса
     private static HashMap<KeyStatus, HashSet<String>> attrMap = new HashMap<>();
+
     static {
         attrMap.put(KeyStatus.ENABLED, new HashSet<>(Arrays.asList("description", "expiryDate", "notifyDate", "relatedKey", "online")));
         attrMap.put(KeyStatus.DISABLED, new HashSet<>(Arrays.asList("description", "expiryDate", "notifyDate", "relatedKey", "online")));
@@ -89,6 +90,7 @@ public class KeyDataServiceImpl implements KeyDataService {
 
     // диаграмма переходов состояний
     private static HashMap<KeyStatus, HashSet<KeyStatus>> statusMap = new HashMap<>();
+
     static {
         statusMap.put(KeyStatus.NONE, new HashSet<>(Arrays.asList(KeyStatus.PENDING_CREATION, KeyStatus.ENABLED)));
 
@@ -126,6 +128,7 @@ public class KeyDataServiceImpl implements KeyDataService {
 
     /**
      * Возврат списка идентификаторов ключей в оперативном доступе.
+     *
      * @return
      */
     @Override
@@ -534,7 +537,6 @@ public class KeyDataServiceImpl implements KeyDataService {
         //     keyPassword.getPart2()[i] = result[i + keyPassword.getPart1().length];
         // }
 
-
         return keyPassword;
     }
 
@@ -768,6 +770,28 @@ public class KeyDataServiceImpl implements KeyDataService {
         // установить текущий статус для ключа
         key.setStatus(newStatus);
         keyDataRepository.save(key);
+
+        //
+        // если ключ ассиметричный, меняем статус и для связанного ключа
+        //
+        if (key.getKeyType() != KeyType.SYMMETRIC && key.getRelatedKey() != null) {
+            log.info("changeStatus: смена статусе для ключа, связанного c ключом '" + key.getId() + "'");
+            key = key.getRelatedKey();
+            // создаем запись истории
+            history = KeyDataHistory.builder()
+                    .createdDate(LocalDateTime.now())
+                    .status(newStatus)
+                    .user(getUserInfo())
+                    .userType("USER")
+                    .key(key)
+                    .build();
+            keyDataHistoryRepository.save(history);
+            // добавить в историю статусов
+            key.getHistory().add(history);
+            // установить текущий статус для ключа
+            key.setStatus(newStatus);
+            keyDataRepository.save(key);
+        }
     }
 
     /**
@@ -789,6 +813,90 @@ public class KeyDataServiceImpl implements KeyDataService {
         KeyData key = keyDataRepository.findById(uid).orElseThrow(
                 () -> new KeyNotFoundApplicationException("Ключ с идентификатором '" + uid + "' для смены статуса не найден."));
         changeStatus(key, newStatus);
+    }
+
+    /**
+     * Перешифровка ключей шифрования данных, зашифрованных мастер-ключем, отмеченным для удаления.
+     */
+    public void rotateDataKey() {
+        KeyData master = null;
+
+        log.info("rotateDataKey: <-.");
+
+        //
+        // Проверить, что в оперативном доступе есть хотя бы один мастер-ключ в статусе разрешен
+        // (будет чем перешифровать?)
+        //
+        for (KeyDataDto k : keyDataMap.values()) {
+            master = keyDataRepository.findById(UUID.fromString(k.getId())).orElse(null);
+            if (master != null) {
+                // нашли разрешенного мастера
+                if (master.getStatus() == KeyStatus.ENABLED && master.getEncKey() == null)
+                    break;
+                else
+                    master = null;
+            }
+        }
+        if (master == null) {
+            log.warn("rotateDataKey: В оперативном доступе нет ни одного мастер-ключа в статусе Разрешен. Перешифровка недоступна.");
+            return;
+        }
+
+        //
+        // Цикл по всем мастер-ключам, подлежащим удалению
+        //
+        List<KeyData> masters = keyDataRepository.findByPurposeTypeAndStatus(PurposeType.KEK, KeyStatus.PENDING_DELETION);
+        if (masters.isEmpty()) {
+            log.info("rotateDataKey: Мастер-ключей, отмеченных для удаления, не найдено.");
+        }
+        for (KeyData m : masters) {
+            log.info("rotateDataKey: анализиуем KEK '" + m.getId() + "'");
+            if (!keyDataMap.containsKey(m.getId())) {
+                log.info("rotateDataKey: KEK '" + m.getId() + "' в оперативном доступе не найден.");
+                continue; // переход к следующему DEK
+            }
+            // взять все ключи, зашифрованные удаляемым мастер-ключем
+            List<KeyData> deks = keyDataRepository.findByEncKey(m);
+            // по каждому из найденных DEK
+            for (KeyData dek : deks) {
+                log.debug("rotateDataKey: проверяем возможность перешифровки DEK '" + dek.getId() + "'");
+                // найти список мастер-ключей в статусе Разрешен (кандидаты для шифрования)
+                List<KeyData> keks = keyDataRepository.findByKeyTypeAndPurposeTypeAndStatus(KeyType.PUBLIC, PurposeType.KEK, KeyStatus.ENABLED);
+                for (KeyData kek : keks) {
+                    //
+                    // попытка перешифровать каким-либо мастер-ключем, доступным в оперативном доступе
+                    //
+                    if (keyDataMap.containsKey(kek.getId())) {
+                        // целевой мастер-ключ доступен в оперативном доступе
+                        log.info("rotateDataKey: KEK кандидат '" + kek.getId() + "'");
+                        try {
+                            // если kek находится в оперативном доступе
+                            log.debug("rotateDataKey: Попытка перешифрации DEK '" + dek.getId() + "' с KEK '" + kek.getId() + "'");
+                            SecretKey secretDek = decodeDataKey(dek.getId());
+                            log.debug("rotateDataKey: DEK '" + dek.getId() + "' расшифрован.");
+                            PublicKey publicKek = KeyGenerator.convertBytesToPublicKey(
+                                    Base64.getDecoder().decode(keyDataMap.get(kek.getId()).getKey()), "RSA");
+                            // перешифровать dek новым kek
+                            byte[] data = KeyGenerator.encryptDataKey(secretDek, publicKek);
+                            // установить в новое значение
+                            dek.setKey(Base64.getEncoder().encodeToString(data));
+                            // указать ссылку на новый kek
+                            dek.setEncKey(kek);
+                            // сохранить dek
+                            keyDataRepository.save(dek);
+                            log.info("rotateDataKey: DEK '" + dek.getId() + "' перешифрован с KEK '" + kek.getId() + "'");
+                            break; // выход из цикла перешифрации конкретного DEK
+                        } catch (Exception ex) {
+                            log.error(String.format("rotateDataKey: Ошибка перешифрации DEK '%s' c KEK '%s': %s", dek.getId(), kek.getId(), ex.getMessage()));
+                            ex.printStackTrace();
+                            // ignore - переход к следующему KEK для новой попытки
+                        }
+                    } else {
+                        log.info("rotateDataKey: KEK '" + kek.getId() + "' в оперативном доступе не найден.");
+                    }
+                }
+            } // завершение перебора dek
+        }
     }
 
     /*
