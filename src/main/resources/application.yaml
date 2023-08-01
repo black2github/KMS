@@ -21,7 +21,8 @@ spring:
       leak-detection-threshold: 60000
       maximum-pool-size: 20
   jpa:
-    show-sql: true
+    #show-sql: true
+    show-sql: false
     hibernate:
       ddl-auto: update
     properties:

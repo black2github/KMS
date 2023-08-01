@@ -78,7 +78,6 @@ public class KeyDataServiceImpl implements KeyDataService {
 
     // список атрибутов, которые можно менять, в зависимости от статуса
     private static HashMap<KeyStatus, HashSet<String>> attrMap = new HashMap<>();
-
     static {
         attrMap.put(KeyStatus.ENABLED, new HashSet<>(Arrays.asList("description", "expiryDate", "notifyDate", "relatedKey", "online")));
         attrMap.put(KeyStatus.DISABLED, new HashSet<>(Arrays.asList("description", "expiryDate", "notifyDate", "relatedKey", "online")));
@@ -90,7 +89,6 @@ public class KeyDataServiceImpl implements KeyDataService {
 
     // диаграмма переходов состояний
     private static HashMap<KeyStatus, HashSet<KeyStatus>> statusMap = new HashMap<>();
-
     static {
         statusMap.put(KeyStatus.NONE, new HashSet<>(Arrays.asList(KeyStatus.PENDING_CREATION, KeyStatus.ENABLED)));
 
@@ -174,12 +172,6 @@ public class KeyDataServiceImpl implements KeyDataService {
 
         // сохранение
         keyDataRepository.saveAndFlush(to);
-    }
-
-    @Transactional
-    @Override
-    public KeyData saveKeyData(KeyDataDto keyDataDto) {
-        return null;
     }
 
     /**
@@ -816,10 +808,11 @@ public class KeyDataServiceImpl implements KeyDataService {
     }
 
     /**
-     * Перешифровка ключей шифрования данных, зашифрованных мастер-ключем, отмеченным для удаления.
+     * Перешифровка ключей шифрования данных (DEK), зашифрованных мастер-ключем (KEK), отмеченным для удаления.
      */
     public void rotateDataKey() {
-        KeyData master = null;
+
+        boolean isReady = false;
 
         log.info("rotateDataKey: <-.");
 
@@ -827,17 +820,15 @@ public class KeyDataServiceImpl implements KeyDataService {
         // Проверить, что в оперативном доступе есть хотя бы один мастер-ключ в статусе разрешен
         // (будет чем перешифровать?)
         //
-        for (KeyDataDto k : keyDataMap.values()) {
-            master = keyDataRepository.findById(UUID.fromString(k.getId())).orElse(null);
-            if (master != null) {
-                // нашли разрешенного мастера
-                if (master.getStatus() == KeyStatus.ENABLED && master.getEncKey() == null)
-                    break;
-                else
-                    master = null;
+        List<KeyData> ms = keyDataRepository.findByPurposeTypeAndStatus(PurposeType.KEK, KeyStatus.ENABLED);
+        for (KeyData m : ms) {
+            // нашли разрешенного мастера, загруженного в оперативный доступ
+            if (keyDataMap.containsKey(m.getId()) && m.getEncKey() == null) {
+                isReady = true;
+                break;
             }
         }
-        if (master == null) {
+        if (!isReady) {
             log.warn("rotateDataKey: В оперативном доступе нет ни одного мастер-ключа в статусе Разрешен. Перешифровка недоступна.");
             return;
         }
@@ -900,7 +891,7 @@ public class KeyDataServiceImpl implements KeyDataService {
     }
 
     /*
-     *
+     * Метод для отладки логики работы разными пользователями.
      */
     private UserDetails getUserInfo() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

@@ -33,6 +33,10 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.fail;
 
 
+/**
+ * Последовательность выполнения шагов в данном сценарии важна (@TestMethodOrder), так как для проверки
+ * необходимо наличие ключей в оперативном доступе.
+ */
 @Slf4j
 @SpringBootTest
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
@@ -78,7 +82,7 @@ class KeyDataServiceImplTest {
     @Test
     @Order(1)
     @WithUserDetails(value = "master1")
-    void generateMasterKey1() {
+    void generateMasterKey_Phase1() {
         // given
         log.info("generateMasterKey1: <- masterKeyData=" + masterKeyData);
 
@@ -93,7 +97,7 @@ class KeyDataServiceImplTest {
     @Test
     @Order(2)
     @WithUserDetails(value = "master2")
-    void generateMasterKey2() {
+    void generateMasterKey_Phase2() {
         log.info("generateMasterKey2: <- masterKeyData=" + masterKeyData);
 
         // given  (подготовка тестовых данных)
@@ -114,14 +118,14 @@ class KeyDataServiceImplTest {
         // given
         log.info("generateMasterKeyBySingleUserShouldFail: <-.");
         String alias = "alias" + r.nextInt(1000);
-        masterKeyData = keyDataService.generateMasterKey(null, alias, null, null,
+        KeyDataDto masterKeyData2 = keyDataService.generateMasterKey(null, alias, null, null,
                 "passwd1".toCharArray(), null);
-        UUID id = UUID.fromString(masterKeyData.getId());
+        UUID id = UUID.fromString(masterKeyData2.getId());
 
         // when
         try {
-            masterKeyData = keyDataService.generateMasterKey(id, alias, masterKeyData.getDescription(),
-                    masterKeyData.getExpiryDate(), "passwd2".toCharArray(), masterKeyData.getNotifyDate());
+            masterKeyData2 = keyDataService.generateMasterKey(id, alias, masterKeyData2.getDescription(),
+                    masterKeyData2.getExpiryDate(), "passwd2".toCharArray(), masterKeyData2.getNotifyDate());
             failBecauseExceptionWasNotThrown(InvalidPasswordApplicationException.class);
         } catch (Exception ex) {
             // then should fail
@@ -133,7 +137,7 @@ class KeyDataServiceImplTest {
     @Test
     @Order(4)
     @WithUserDetails(value = "master1")
-    void loadMasterKey1() {
+    void loadMasterKey_Phase1() {
         // given
         log.info("loadMasterKey1: <- .");
         masterKeyData = null;
@@ -158,7 +162,7 @@ class KeyDataServiceImplTest {
     @Test
     @Order(5)
     @WithUserDetails(value = "master2")
-    void loadMasterKey2() {
+    void loadMasterKey_Phase2() {
         log.info("loadMasterKey2: <- masterKeyData=" + masterKeyData);
 
         // given
@@ -186,7 +190,7 @@ class KeyDataServiceImplTest {
     }
 
     @Test
-    @Order(7)
+    @Order(11)
     void listAll() {
         List<KeyDataDto> keys = keyDataService.listAll();
         for (KeyDataDto key : keys) {
@@ -195,7 +199,7 @@ class KeyDataServiceImplTest {
     }
 
     @Test
-    @Order(8)
+    @Order(12)
     @WithUserDetails(value = "admin")
     void changeKeyStatus() {
         // given
@@ -229,7 +233,7 @@ class KeyDataServiceImplTest {
     }
 
     @Test
-    @Order(9)
+    @Order(13)
     @WithUserDetails(value = "admin")
     void createManyDataKey() {
         KeyDataDto[] keys = new KeyDataDto[3];
@@ -249,7 +253,7 @@ class KeyDataServiceImplTest {
     }
 
     @Test
-    @Order(10)
+    @Order(14)
     @WithUserDetails(value = "admin")
     void decodeDataKey() {
         // given
@@ -267,7 +271,7 @@ class KeyDataServiceImplTest {
     }
 
     @Test
-    @Order(11)
+    @Order(15)
     @WithUserDetails(value = "user")
     void secret2Token2Secret() {
         // given
@@ -284,7 +288,7 @@ class KeyDataServiceImplTest {
     }
 
     @Test
-    @Order(12)
+    @Order(16)
     @WithUserDetails(value = "user")
     void shouldReturnTheSameToken() {
         // given

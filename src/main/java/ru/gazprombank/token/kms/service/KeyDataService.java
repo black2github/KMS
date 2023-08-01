@@ -37,8 +37,6 @@ public interface KeyDataService {
      */
     void changeStatus(String id, KeyStatus newStatus);
 
-    KeyData saveKeyData(KeyDataDto keyDataDto);
-
     /**
      * Отметить ключ на удаление.
      * @param uid
