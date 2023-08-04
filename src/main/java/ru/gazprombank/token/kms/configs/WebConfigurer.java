@@ -29,6 +29,8 @@ public class WebConfigurer {
                 //  .permitAll()
                 .requestMatchers("/tokens/**")
                 .hasRole("USER")
+                .requestMatchers("/b2b/**")
+                .hasAnyRole("USER")
                 .requestMatchers("/url1/**").permitAll()
                 .requestMatchers("/url2/**").permitAll()
                 .requestMatchers("/url3/**").permitAll()
@@ -76,7 +78,7 @@ public class WebConfigurer {
                 .password(bCryptPasswordEncoder.encode("{noop}masterPass2"))
                 .roles("MASTER", "USER", "ADMIN")
                 .build());
-        manager.createUser(User.withUsername("KMS")
+        manager.createUser(User.withUsername("kms")
                 .password(bCryptPasswordEncoder.encode("{noop}kmsPass"))
                 .roles("ADMIN", "MASTER", "KMS")
                 .build());

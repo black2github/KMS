@@ -120,7 +120,9 @@ public class KeyDataServiceImpl implements KeyDataService {
     public List<KeyDataDto> listAll() {
         log.info("listAll: <-");
         List<KeyData> list = keyDataRepository.findAll();
-        log.info("listAll: -> " + Arrays.toString(list.toArray()));
+        log.info("listAll: -> .");
+        // log.info("listAll: -> " + Arrays.toString(list.toArray()));
+        // return Arrays.asList(new KeyDataDto[]{new KeyDataDto()}).stream().collect(Collectors.toList());
         return list.stream().map(keyDataMapper::toDto).collect(Collectors.toList());
     }
 
@@ -759,6 +761,7 @@ public class KeyDataServiceImpl implements KeyDataService {
         keyDataHistoryRepository.save(history);
         // добавить в историю статусов
         key.getHistory().add(history);
+
         // установить текущий статус для ключа
         key.setStatus(newStatus);
         keyDataRepository.save(key);
@@ -780,6 +783,7 @@ public class KeyDataServiceImpl implements KeyDataService {
             keyDataHistoryRepository.save(history);
             // добавить в историю статусов
             key.getHistory().add(history);
+
             // установить текущий статус для ключа
             key.setStatus(newStatus);
             keyDataRepository.save(key);

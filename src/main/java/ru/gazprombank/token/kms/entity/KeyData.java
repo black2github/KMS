@@ -14,6 +14,7 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.NotNull;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -39,13 +40,15 @@ import java.util.UUID;
 @Accessors(chain = true)
 @ToString
 @RequiredArgsConstructor
+@EqualsAndHashCode
 @Table(name = "key_data", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"alias", "type"})
+        @UniqueConstraint(columnNames = {"alias", "key_type"})
 })
 public class KeyData {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", nullable = false)
+    @EqualsAndHashCode.Exclude
     private UUID id;
 
     /**
@@ -91,7 +94,7 @@ public class KeyData {
      * Key type.
      */
     @NotNull(message = "Реквизит 'Тип ключа' является обязательным")
-    @Column(name = "type", length = 16, nullable = false)
+    @Column(name = "key_type", length = 16, nullable = false)
     @Convert(converter = KeyTypeConverter.class)
     private KeyType keyType;
 
@@ -107,10 +110,21 @@ public class KeyData {
      * Related key.
      */
     @ToString.Exclude
+    @EqualsAndHashCode.Exclude
     @OneToOne(fetch = jakarta.persistence.FetchType.LAZY)
-    @JoinColumn
+    @JoinColumn(name = "related_key_id")
     @Fetch(FetchMode.JOIN)
     private KeyData relatedKey;
+
+    /**
+     * Encrypted by the key.
+     */
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
+    @JoinColumn(name = "enc_key_id")
+    @Fetch(FetchMode.JOIN)
+    private KeyData encKey;
 
     /**
      * Creation date and time.
@@ -126,16 +140,10 @@ public class KeyData {
     private KeyStatus status;
 
     @OneToMany(mappedBy = "key", cascade = CascadeType.ALL)
+    @EqualsAndHashCode.Exclude
     @ToString.Exclude
     private List<KeyDataHistory> history = new LinkedList<>();
 
-    /**
-     * Encrypted by the key.
-     */
-    @ToString.Exclude
-    @ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
-    @JoinColumn(name = "enc_key_id")
-    private KeyData encKey;
 
     /**
      * Online presence.
@@ -161,33 +169,33 @@ public class KeyData {
         this.expiryDate = createdDate.plusYears(10); // default - 10 years
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof KeyData keyData)) return false;
-
-        if (getAlias() != null ? !getAlias().equals(keyData.getAlias()) : keyData.getAlias() != null) return false;
-        if (getKey() != null ? !getKey().equals(keyData.getKey()) : keyData.getKey() != null) return false;
-        if (getExpiryDate() != null ? !getExpiryDate().equals(keyData.getExpiryDate()) : keyData.getExpiryDate() != null)
-            return false;
-        if (!getAlgorithm().equals(keyData.getAlgorithm())) return false;
-        if (getKeyType() != keyData.getKeyType()) return false;
-        if (getPurposeType() != keyData.getPurposeType()) return false;
-        if (getCreatedDate() != null ? !getCreatedDate().equals(keyData.getCreatedDate()) : keyData.getCreatedDate() != null)
-            return false;
-        return getEncKey() != null ? getEncKey().equals(keyData.getEncKey()) : keyData.getEncKey() == null;
-    }
-
-    @Override
-    public int hashCode() {
-        int result = getAlias() != null ? getAlias().hashCode() : 0;
-        result = 31 * result + (getKey() != null ? getKey().hashCode() : 0);
-        result = 31 * result + (getExpiryDate() != null ? getExpiryDate().hashCode() : 0);
-        result = 31 * result + getAlgorithm().hashCode();
-        result = 31 * result + getKeyType().hashCode();
-        result = 31 * result + getPurposeType().hashCode();
-        result = 31 * result + (getCreatedDate() != null ? getCreatedDate().hashCode() : 0);
-        result = 31 * result + (getEncKey() != null ? getEncKey().hashCode() : 0);
-        return result;
-    }
+    // @Override
+    // public boolean equals(Object o) {
+    //     if (this == o) return true;
+    //     if (!(o instanceof KeyData keyData)) return false;
+    //
+    //     if (getAlias() != null ? !getAlias().equals(keyData.getAlias()) : keyData.getAlias() != null) return false;
+    //     if (getKey() != null ? !getKey().equals(keyData.getKey()) : keyData.getKey() != null) return false;
+    //     if (getExpiryDate() != null ? !getExpiryDate().equals(keyData.getExpiryDate()) : keyData.getExpiryDate() != null)
+    //         return false;
+    //     if (!getAlgorithm().equals(keyData.getAlgorithm())) return false;
+    //     if (getKeyType() != keyData.getKeyType()) return false;
+    //     if (getPurposeType() != keyData.getPurposeType()) return false;
+    //     if (getCreatedDate() != null ? !getCreatedDate().equals(keyData.getCreatedDate()) : keyData.getCreatedDate() != null)
+    //         return false;
+    //     return getEncKey() != null ? getEncKey().equals(keyData.getEncKey()) : keyData.getEncKey() == null;
+    // }
+    //
+    // @Override
+    // public int hashCode() {
+    //     int result = getAlias() != null ? getAlias().hashCode() : 0;
+    //     result = 31 * result + (getKey() != null ? getKey().hashCode() : 0);
+    //     result = 31 * result + (getExpiryDate() != null ? getExpiryDate().hashCode() : 0);
+    //     result = 31 * result + getAlgorithm().hashCode();
+    //     result = 31 * result + getKeyType().hashCode();
+    //     result = 31 * result + getPurposeType().hashCode();
+    //     result = 31 * result + (getCreatedDate() != null ? getCreatedDate().hashCode() : 0);
+    //     result = 31 * result + (getEncKey() != null ? getEncKey().hashCode() : 0);
+    //     return result;
+    // }
 }

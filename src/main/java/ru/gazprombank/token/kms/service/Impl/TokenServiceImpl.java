@@ -4,6 +4,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.gazprombank.token.kms.entity.KeyData;
@@ -11,8 +14,10 @@ import ru.gazprombank.token.kms.entity.KeyStatus;
 import ru.gazprombank.token.kms.entity.KeyType;
 import ru.gazprombank.token.kms.entity.PurposeType;
 import ru.gazprombank.token.kms.entity.Token;
+import ru.gazprombank.token.kms.entity.TokenHistory;
 import ru.gazprombank.token.kms.entity.TokenType;
 import ru.gazprombank.token.kms.repository.KeyDataRepository;
+import ru.gazprombank.token.kms.repository.TokenHistoryRepository;
 import ru.gazprombank.token.kms.repository.TokenRepository;
 import ru.gazprombank.token.kms.service.KeyDataService;
 import ru.gazprombank.token.kms.service.TokenService;
@@ -39,6 +44,7 @@ import java.util.UUID;
 public class TokenServiceImpl implements TokenService {
 
     private final TokenRepository tokenRepository;
+    private final TokenHistoryRepository tokenHistoryRepository;
     private final KeyDataRepository keyDataRepository;
     private final KeyDataService keyDataService;
 
@@ -59,14 +65,18 @@ public class TokenServiceImpl implements TokenService {
         log.info("secret2Token: <- type=" + type);
 
         // Поиск токена среди уже существующих
-        String tokenId = findAlike(secret, type);
-        if (tokenId != null) {
+        Token token = findAlike(secret, type);
+        if (token != null) {
+            // сохранение в истории токена
+            tokenHistoryRepository.save(new TokenHistory(
+                    null, token, LocalDateTime.now(), "secret2Token", getUserInfo(), "doc1", null, "Eco"));
+
             // TODO игнорируется ttl, корректно ли это?
-            return tokenId;
+            return token.getId().toString();
         }
 
         // Создание токена
-        Token token = new Token().builder()
+        token = new Token().builder()
                 .createdDate(LocalDateTime.now())
                 .type(type)
                 .build();
@@ -116,9 +126,14 @@ public class TokenServiceImpl implements TokenService {
 
         // Сохранение ссылки на ключ шифрования
         token.setKey(key);
-        tokenRepository.saveAndFlush(token);
+        tokenRepository.save(token);
+
+        // сохранение в истории токена
+        tokenHistoryRepository.save(new TokenHistory(
+                null, token, LocalDateTime.now(), "secret2Token", getUserInfo(), "doc1", null, "Eco"));
 
         log.info("secret2Token: -> " + token.getId());
+
         // возврат id в качестве токена
         return token.getId().toString();
     }
@@ -130,9 +145,9 @@ public class TokenServiceImpl implements TokenService {
     }
 
     /**
-     * Получить по токену секретные данные.
+     * Получить по токену секретные данные, если ранее получал токен.
      *
-     * @param id строковое представляние токена.
+     * @param id строковое представление токена.
      * @return строка с оригинальными секретными данными.
      */
     @Override
@@ -150,7 +165,18 @@ public class TokenServiceImpl implements TokenService {
 
         // Найти токен
         Token data = tokenRepository.findById(uuid).orElseThrow(
-                () -> new TokenNotFoundApplicationException("Токен с идентификатором '" + id + "' не найден."));
+                () -> new TokenNotFoundApplicationException("Токен '" + id + "' не найден"));
+        // Токен еще не протух?
+        if (data.getExpiryDate().isBefore(LocalDateTime.now())) {
+            throw new SecurityApplicationException("Срок действия токена '" + id + "' истек");
+        }
+        // Проверить, что токен выдавался ранее именно данному пользователю
+        // TODO данная проверка нужна только непривелигированному пользователю - вынести в отдельный метод
+        List<TokenHistory> history = tokenHistoryRepository.findByTokenAndMethodAndUser(data, "secret2Token", getUserInfo());
+        if (history.isEmpty()) {
+            throw new SecurityApplicationException("Нет прав на получение данных токена");
+        }
+
         // Взять ключ шифрования данных, которым зашифрован токен
         KeyData keyData = keyDataRepository.findById(data.getKey().getId()).orElseThrow(
                 () -> new KeyNotFoundApplicationException("Ключ шифрования '" + data.getKey().getId() + "' токена не найден"));
@@ -158,6 +184,10 @@ public class TokenServiceImpl implements TokenService {
         SecretKey secretKey = keyDataService.decodeDataKey(keyData.getId());
         // Расшифровать токен
         try {
+            // сохранение в истории токена
+            tokenHistoryRepository.save(new TokenHistory(
+                    null, data, LocalDateTime.now(), "token2Secret", getUserInfo(), "doc1", null, "Eco"));
+
             return KeyGenerator.decryptData(data.getSecret(), secretKey);
         } catch (Exception ex) {
             log.error("token2Secret: Ошибка расшифровки токена: " + ex.getMessage());
@@ -166,10 +196,10 @@ public class TokenServiceImpl implements TokenService {
     }
 
     /*
-     * Поиск среди похожих токенов по индексу.
+     * Поиск среди похожих токенов по индексу и расшифровкой содержимого.
      * В случае нахождения - возврат идентификатора токена.
      */
-    private String findAlike(String sec, TokenType type) {
+    private Token findAlike(String sec, TokenType type) {
         log.info("findAlike: <- ");
 
         if (type == TokenType.PAN) {
@@ -186,7 +216,7 @@ public class TokenServiceImpl implements TokenService {
                     String sec2 = KeyGenerator.decryptData(token.getSecret(), secretKey);
                     if (sec.equals(sec2)) {
                         // возвращаем идентификатор существующего токена
-                        return token.getId().toString();
+                        return token;
                     }
                 } catch (Exception ex) {
                     log.error("findAlike: Ошибка расшифровки токена " + token.getId());
@@ -195,6 +225,23 @@ public class TokenServiceImpl implements TokenService {
             }
         }
         // совпадений не найдено
+        return null;
+    }
+
+    /*
+     * Метод для отладки логики работы разными пользователями.
+     */
+    private String getUserInfo() {
+        Authentication currentUser = SecurityContextHolder.getContext().getAuthentication();
+
+        if (currentUser != null && currentUser.isAuthenticated()) {
+            Object principal = currentUser.getPrincipal();
+
+            if (principal instanceof UserDetails) {
+                // return (UserDetails) principal;
+                return currentUser.getName();
+            }
+        }
         return null;
     }
 }

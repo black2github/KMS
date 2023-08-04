@@ -20,6 +20,7 @@ import ru.gazprombank.token.kms.repository.KeyDataRepository;
 import ru.gazprombank.token.kms.service.KeyDataService;
 import ru.gazprombank.token.kms.service.TokenService;
 import ru.gazprombank.token.kms.util.exceptions.InvalidPasswordApplicationException;
+import ru.gazprombank.token.kms.util.exceptions.SecurityApplicationException;
 
 import javax.crypto.SecretKey;
 import java.util.List;
@@ -30,6 +31,7 @@ import static org.assertj.core.api.Assertions.failBecauseExceptionWasNotThrown;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 
@@ -303,5 +305,30 @@ class KeyDataServiceImplTest {
 
         // then
         assertEquals(token, token2);
+    }
+
+    @Test
+    @Order(17)
+    @WithUserDetails(value = "user")
+    void shouldNotReturnExpiredDataFromToken() {
+        // given
+        String secret = null;
+        Random r = new Random();
+        String pan = "111122223333" + String.format("%04d", r.nextInt(10000));
+        log.info("shouldNotReturnExpiredDataFromToken: token <- '" + pan + "'");
+        // when
+        String token = tokenService.secret2Token(pan, TokenType.PAN, 1L);
+
+        // then
+        try {
+            Thread.sleep(1500L);
+            secret = tokenService.token2Secret(token);
+            fail("Возвращены данные из протухшего токена");
+        } catch (SecurityApplicationException ex) {
+            log.info("shouldNotReturnExpiredDataFromToken: " + ex.get());
+            assertTrue(ex.getMessage().contains("истек"));
+        } catch (Exception ex) {
+            fail(ex.getMessage());
+        }
     }
 }

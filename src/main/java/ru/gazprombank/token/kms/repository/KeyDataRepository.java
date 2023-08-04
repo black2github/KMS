@@ -1,6 +1,5 @@
 package ru.gazprombank.token.kms.repository;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -14,6 +13,7 @@ import ru.gazprombank.token.kms.entity.PurposeType;
 
 @Repository
 public interface KeyDataRepository extends JpaRepository<KeyData, UUID> {
+
     List<KeyData> findByKeyTypeAndPurposeTypeAndStatus(
             KeyType keyType, PurposeType purposeType, KeyStatus keyStatus);
 
