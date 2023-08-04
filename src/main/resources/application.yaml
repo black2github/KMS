@@ -53,7 +53,7 @@ springdoc:
 kms:
   # Каталог хранения файлов с ключами и сертификатами. Выполняет роль хранилища,
   # отличного от хранилища других ключей и токенов (по PCI DSS).
-  storeURI: "file:///C:/work/JavaProjects/GazpromBank/KMS2/KMS"
+  storeURI: "file:///C:/work/JavaProjects/GazpromBank/KMS"
   key:
     ttl:
       # число лет до протухания ключа по умолчанию в зависимости от типа
