@@ -40,7 +40,7 @@
         </Root>
 
         <!-- LOG "ru.gazprombank.token.kms.controller*" at INFO level -->
-        <Logger name="ru.gazprombank.token.kms" level="debug"></Logger>
+        <Logger name="ru.gpb" level="debug"></Logger>
     </Loggers>
 
 </Configuration>
