@@ -1,4 +1,4 @@
-package ru.gpb.token.service.Impl;
+package ru.gpb.service.Impl;
 
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
@@ -16,6 +16,7 @@ import ru.gpb.kms.entity.Dto.KeyDataDto;
 import ru.gpb.kms.entity.KeyStatus;
 import ru.gpb.kms.entity.KeyType;
 import ru.gpb.kms.entity.PurposeType;
+import ru.gpb.kms.util.exceptions.KeyNotFoundApplicationException;
 import ru.gpb.token.entity.TokenType;
 import ru.gpb.kms.repository.KeyDataRepository;
 import ru.gpb.kms.service.KeyDataService;
@@ -250,8 +251,8 @@ class KeyDataServiceImplTest {
         }
 
         // clean
-        for (int i = 0; i < keys.length; i++) {
-            keyDataService.delete(keys[i].getId());
+        for (KeyDataDto key : keys) {
+            keyDataService.delete(key.getId());
         }
     }
 
@@ -313,7 +314,6 @@ class KeyDataServiceImplTest {
     @WithUserDetails(value = "user")
     void shouldNotReturnExpiredDataFromToken() {
         // given
-        String secret = null;
         Random r = new Random();
         String pan = "111122223333" + String.format("%04d", r.nextInt(10000));
         log.info("shouldNotReturnExpiredDataFromToken: token <- '" + pan + "'");
@@ -323,7 +323,7 @@ class KeyDataServiceImplTest {
         // then
         try {
             Thread.sleep(1500L); // спим 1,5 секунды
-            secret = tokenService.token2Secret(token);
+            tokenService.token2Secret(token);
             fail("Возвращены данные из протухшего токена");
         } catch (SecurityApplicationException ex) {
             log.info("shouldNotReturnExpiredDataFromToken: " + ex.get());
@@ -332,4 +332,5 @@ class KeyDataServiceImplTest {
             fail(ex.getMessage());
         }
     }
+
 }

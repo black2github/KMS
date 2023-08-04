@@ -1,4 +1,4 @@
-package ru.gpb.token;
+package ru.gpb;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;

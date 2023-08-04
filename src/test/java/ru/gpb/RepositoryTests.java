@@ -1,18 +1,18 @@
-package ru.gpb.token;
+package ru.gpb;
 
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import ru.gpb.token.entity.Token;
 import ru.gpb.kms.entity.KeyData;
 import ru.gpb.kms.entity.KeyStatus;
 import ru.gpb.kms.entity.KeyType;
 import ru.gpb.kms.entity.PurposeType;
 import ru.gpb.kms.repository.KeyDataRepository;
-import ru.gpb.token.entity.Token;
-import ru.gpb.token.entity.TokenType;
 import ru.gpb.token.repository.TokenRepository;
+import ru.gpb.token.entity.TokenType;
 
 import java.util.Random;
 

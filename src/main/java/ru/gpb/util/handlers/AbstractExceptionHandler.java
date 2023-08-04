@@ -29,8 +29,10 @@ public abstract class AbstractExceptionHandler {
     }
 
     private ErrorResponseDto buildErrorResponseDTO(final String message) {
-        return new ErrorResponseDto(message);
+        // return new ErrorResponseDto(message);
+        return new ErrorResponseDto(-1, message);
     }
+
     private ErrorResponseDto buildErrorResponseDTO(final int code, final String message) {
         return new ErrorResponseDto(code, message);
     }

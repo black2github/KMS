@@ -1,4 +1,4 @@
-package ru.gpb.token.service.Impl;
+package ru.gpb.service.Impl;
 
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;
@@ -20,6 +20,7 @@ import java.util.Random;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -34,9 +35,6 @@ class KeyDataRotateTest {
 
     @Autowired
     private KeyDataService keyDataService;
-
-    @Autowired
-    private KeyDataRepository keyDataRepository;
 
     private static KeyDataDto masterKeyData1 = null;
     private static KeyDataDto masterKeyData2 = null;
@@ -65,7 +63,7 @@ class KeyDataRotateTest {
                 "passwd1".toCharArray(), null);
         // then
         assertNotNull(masterKeyData1);
-        assertTrue(masterKeyData1.getStatus()== KeyStatus.PENDING_CREATION);
+        assertSame(masterKeyData1.getStatus(), KeyStatus.PENDING_CREATION);
         log.info("generateMasterKey1: -> masterKeyData=" + masterKeyData1);
     }
 

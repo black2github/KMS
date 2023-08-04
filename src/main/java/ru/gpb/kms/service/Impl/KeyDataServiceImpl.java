@@ -120,9 +120,7 @@ public class KeyDataServiceImpl implements KeyDataService {
     public List<KeyDataDto> listAll() {
         log.info("listAll: <-");
         List<KeyData> list = keyDataRepository.findAll();
-        log.info("listAll: -> .");
-        // log.info("listAll: -> " + Arrays.toString(list.toArray()));
-        // return Arrays.asList(new KeyDataDto[]{new KeyDataDto()}).stream().collect(Collectors.toList());
+        log.info("listAll: -> " + Arrays.toString(list.toArray()));
         return list.stream().map(keyDataMapper::toDto).collect(Collectors.toList());
     }
 
@@ -192,7 +190,7 @@ public class KeyDataServiceImpl implements KeyDataService {
         changeStatus(key, KeyStatus.PENDING_DELETION);
     }
 
-    // печать содержимо кэша для отладки
+    // печать содержимого кэша для отладки
     private void printKeyMap() {
         for (UUID id : keyDataMap.keySet()) {
             log.trace("map: " + id + " => " + keyDataMap.get(id));

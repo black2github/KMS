@@ -5,7 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import ru.gpb.kms.entity.Dto.ErrorResponseDto;
-import ru.gpb.token.util.exceptions.TokenNotFoundApplicationException;
+import ru.gpb.token.util.exeptions.TokenNotFoundApplicationException;
 import ru.gpb.util.handlers.AbstractExceptionHandler;
 
 @ControllerAdvice
