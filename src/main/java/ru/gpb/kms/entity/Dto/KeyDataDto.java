@@ -15,6 +15,7 @@ import ru.gpb.kms.entity.KeyStatus;
 import ru.gpb.kms.entity.KeyType;
 import ru.gpb.kms.entity.PurposeType;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
