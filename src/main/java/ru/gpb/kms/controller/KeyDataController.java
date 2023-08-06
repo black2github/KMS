@@ -1,5 +1,6 @@
 package ru.gpb.kms.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,8 +70,9 @@ public class KeyDataController {
     @DeleteMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> delete(@RequestBody String id) {
+    // public ResponseEntity<Void> delete(@RequestBody @Valid UUID id) {
         log.info("delete: <- id='" + id + "'");
-        keyDataService.delete(id);
+        keyDataService.delete(id.toString());
         return new ResponseEntity<>(HttpStatus.OK);
     }
 

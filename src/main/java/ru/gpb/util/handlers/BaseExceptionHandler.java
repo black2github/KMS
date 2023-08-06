@@ -6,6 +6,9 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import ru.gpb.kms.entity.Dto.ErrorResponseDto;
 
+/**
+ * Отлов всех ошибок и заворачивание в стандатный обработчик.
+ */
 @ControllerAdvice
 public class BaseExceptionHandler extends AbstractExceptionHandler {
 
