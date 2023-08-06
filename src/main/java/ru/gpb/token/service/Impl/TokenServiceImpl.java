@@ -56,8 +56,8 @@ public class TokenServiceImpl implements TokenService {
     /**
      * Преобразовать секретные данные в токен.
      *
-     * @param request
-     * @return
+     * @param request TokenRequest с данными для создания токена.
+     * @return строка с токеном.
      */
     @Override
     public String secret2Token(TokenRequest request) {
@@ -150,7 +150,7 @@ public class TokenServiceImpl implements TokenService {
      * Получить по токену секретные данные, если ранее получал токен.
      *
      * @param id id строковое представление токена.
-     * @return
+     * @return TokenResponse данные.
      */
     @Override
     public TokenResponse token2Secret(String id) {
