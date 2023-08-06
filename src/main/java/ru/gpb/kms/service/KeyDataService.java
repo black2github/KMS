@@ -14,48 +14,49 @@ import java.util.UUID;
 public interface KeyDataService {
 
     /**
-     * Список всех ключей.
-     * @return
+     * Получение списка всех ключей.
+     * @return список DTO с данными по ключам.
      */
     List<KeyDataDto> listAll();
 
     /**
-     * Список идентификаторов ключей в оепративном доступе.
-     * @return
+     * Получение списка идентификаторов ключей в оперативном доступе.
+     * @return список идентификаторов ключей в оперативном доступе.
      */
     List<String> listCache();
 
     /**
      * Обновление атрибутов ключа.
-     * @param id строка с идентификатором ключа.
-     * @param keyDataDto
+     * @param id строка с идентификатором обновляемого ключа.
+     * @param keyDataDto данные, которыми нунжно обновить ключ.
      */
     void updateKeyData(String id, KeyDataDto keyDataDto);
 
     /**
      * Изменение статуса ключа.
      * @param id строка с идентификатором ключа.
-     * @param newStatus
+     * @param newStatus новый статус.
      */
     void changeStatus(String id, KeyStatus newStatus);
 
     /**
      * Отметить ключ на удаление.
-     * @param uid
+     * @param id строка с идентификатором удаляемого ключа.
      */
-    void delete(String uid);
+    void delete(String id);
 
     /**
-     * Получение секретного ключа шифрования данных в открытом виде.
-     * @param id
-     * @return
+     * Получение секретного ключа шифрования данных в открытом виде. Служебный метод, НЕ
+     * предназначен для "внешнего" использвоания.
+     * @param id идентификатор расшифруемого ключа.
+     * @return секретный ключ, который можно использовать для шифрования или расшифровки.
      */
     SecretKey decodeDataKey(UUID id);
 
     /**
      * Создание ключа шифрования данных.
      * @param alias адиас ключа, с которым он будет помещен в хранилище.
-     * @return
+     * @return DTO с данными созданного ключа.
      */
     KeyDataDto generateDataKey(String alias);
 
@@ -65,8 +66,9 @@ public interface KeyDataService {
      * пользователей должен совпадать порядок, использованным для генерации этого ключа.
      *
      * @param id идентификатор загружаемого ключа.
-     * @param password
-     * @return
+     * @param password пароль для загрузки ключа, указываемый текущим пользователем.
+     * @return DTO с данными загруженного мастер ключа. Сам ключ - не возращается, DTO содержит ссылку (URI) на хранилище,
+     * в котором находится ключ.
      */
     KeyDataDto loadMasterKey(UUID id, char[] password);
 
@@ -83,14 +85,14 @@ public interface KeyDataService {
      * @param expirationDate Срок действия (необязательный). Если не указан, будет взят из настройки.
      * @param password Пароль для доступа к ключу.
      * @param notifyDate Срок уведомления об истечении срока действия (необязательный).
-     * @return
+     * @return DTO с данными созданного мастер-ключа. DTO в поле Ключ содержит ссылку (URI) на место размещения ключа.
      */
     KeyDataDto generateMasterKey(UUID id, String alias, String desc, LocalDateTime expirationDate,
                             char[] password, LocalDateTime notifyDate);
 
 
     /**
-     * Перешифровка ключей шифрования данных.
+     * Перешифровка ключей шифрования данных. Метод, вызываемый с определенной периодичностью для ротации ключей.
      */
     void rotateDataKey();
 }
