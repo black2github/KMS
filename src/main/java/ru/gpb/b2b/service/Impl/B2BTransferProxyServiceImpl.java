@@ -35,7 +35,7 @@ public class B2BTransferProxyServiceImpl implements B2BProxyTransferService {
         if (pan != null) {
             log.info("checkPay: vPAN=" + pan);
             // преобразовать к оригинальному PAN
-            pan = tokenService.token2Secret(pan);
+            pan = tokenService.token2Secret(pan).getSecret();
             request.getDestination().setPan(pan);
             request.getDestination().setVirtualNum(null);
         }
@@ -60,7 +60,7 @@ public class B2BTransferProxyServiceImpl implements B2BProxyTransferService {
         if (pan != null) {
             log.info("transfer: vPAN=" + pan);
             // преобразовать к оригинальному PAN
-            pan = tokenService.token2Secret(pan);
+            pan = tokenService.token2Secret(pan).getSecret();
             request.getDestination().setPan(pan);
             request.getDestination().setVirtualNum(null);
         }

@@ -16,7 +16,8 @@ import ru.gpb.kms.entity.Dto.KeyDataDto;
 import ru.gpb.kms.entity.KeyStatus;
 import ru.gpb.kms.entity.KeyType;
 import ru.gpb.kms.entity.PurposeType;
-import ru.gpb.kms.util.exceptions.KeyNotFoundApplicationException;
+import ru.gpb.token.entity.Dto.TokenRequest;
+import ru.gpb.token.entity.Dto.TokenResponse;
 import ru.gpb.token.entity.TokenType;
 import ru.gpb.kms.repository.KeyDataRepository;
 import ru.gpb.kms.service.KeyDataService;
@@ -280,12 +281,15 @@ class KeyDataServiceImplTest {
     void secret2Token2Secret() {
         // given
         String pan = "1111222233334444";
+        TokenRequest req = new TokenRequest(pan, TokenType.PAN, 1L, "Eco", null, "123");
+
 
         // when
-        String token = tokenService.secret2Token(pan, TokenType.PAN, null);
+        String token = tokenService.secret2Token(req);
         assertNotNull(token);
         log.info("secret2Token2Secret: token = '" + token + "'");
-        String secret = tokenService.token2Secret(token);
+        TokenResponse resp = tokenService.token2Secret(token);
+        String secret = resp.getSecret();
 
         // then
         assertEquals(pan, secret);
@@ -298,12 +302,14 @@ class KeyDataServiceImplTest {
         // given
         Random r = new Random();
         String pan = "111122223333" + String.format("%04d", r.nextInt(10000));
+        TokenRequest req = new TokenRequest(pan, TokenType.PAN, 1L, "Eco", null, "123");
+
         log.info("shouldReturnTheSameToken: token <- '" + pan + "'");
         // when
-        String token = tokenService.secret2Token(pan, TokenType.PAN, null);
+        String token = tokenService.secret2Token(req);
         assertNotNull(token);
         log.info("shouldReturnTheSameToken: token = '" + token + "'");
-        String token2 = tokenService.secret2Token(pan, TokenType.PAN, null);
+        String token2 = tokenService.secret2Token(req);
 
         // then
         assertEquals(token, token2);
@@ -318,7 +324,8 @@ class KeyDataServiceImplTest {
         String pan = "111122223333" + String.format("%04d", r.nextInt(10000));
         log.info("shouldNotReturnExpiredDataFromToken: token <- '" + pan + "'");
         // when
-        String token = tokenService.secret2Token(pan, TokenType.PAN, 1L); // ставим протухание на 1 секунду
+        TokenRequest req = new TokenRequest(pan, TokenType.PAN, 1L, "Eco", null, "123");
+        String token = tokenService.secret2Token(req); // ставим протухание на 1 секунду
 
         // then
         try {

@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import ru.gpb.token.entity.Dto.TokenRequest;
+import ru.gpb.token.entity.Dto.TokenResponse;
 import ru.gpb.token.service.TokenService;
 
 /**
@@ -35,16 +36,16 @@ public class TokenController {
     public  ResponseEntity<String> secret2Token(@RequestBody TokenRequest request) {
         log.info("secret2Token: <- type=" + request.getType());
 
-        String token = tokenService.secret2Token(request.getSecret(), request.getType(), request.getTtl());
+        String token = tokenService.secret2Token(request);
         return new ResponseEntity<>(token, HttpStatus.OK);
     }
 
     @PostMapping("/get")
     @PreAuthorize("hasRole('KMS')")
-    public  ResponseEntity<String> token2Secret(@RequestBody String token) {
+    public  ResponseEntity<TokenResponse> token2Secret(@RequestBody String token) {
         log.info("token2Secret: <- token=" + token);
 
-        String secret = tokenService.token2Secret(token);
+        TokenResponse secret = tokenService.token2Secret(token);
         return new ResponseEntity<>(secret, HttpStatus.OK);
     }
 }

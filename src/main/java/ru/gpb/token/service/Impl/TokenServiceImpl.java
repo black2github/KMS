@@ -8,26 +8,28 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import ru.gpb.token.entity.Token;
-import ru.gpb.token.entity.TokenType;
 import ru.gpb.kms.entity.KeyData;
 import ru.gpb.kms.entity.KeyStatus;
 import ru.gpb.kms.entity.KeyType;
 import ru.gpb.kms.entity.PurposeType;
-import ru.gpb.token.repository.TokenHistoryRepository;
-import ru.gpb.token.repository.TokenRepository;
-import ru.gpb.token.service.TokenService;
-import ru.gpb.token.entity.TokenHistory;
 import ru.gpb.kms.repository.KeyDataRepository;
 import ru.gpb.kms.service.KeyDataService;
 import ru.gpb.kms.util.KeyGenerator;
 import ru.gpb.kms.util.exceptions.InvalidArgumentApplicationException;
 import ru.gpb.kms.util.exceptions.KeyNotFoundApplicationException;
 import ru.gpb.kms.util.exceptions.SecurityApplicationException;
+import ru.gpb.token.entity.Dto.TokenRequest;
+import ru.gpb.token.entity.Dto.TokenResponse;
+import ru.gpb.token.entity.Token;
+import ru.gpb.token.entity.TokenHistory;
+import ru.gpb.token.entity.TokenType;
+import ru.gpb.token.repository.TokenHistoryRepository;
+import ru.gpb.token.repository.TokenRepository;
+import ru.gpb.token.service.TokenService;
 import ru.gpb.token.util.exeptions.TokenNotFoundApplicationException;
 
 import javax.crypto.SecretKey;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -54,22 +56,19 @@ public class TokenServiceImpl implements TokenService {
     /**
      * Преобразовать секретные данные в токен.
      *
-     * @param secret строка с оригинальными секретными данными.
-     * @param type   тип токена, по умолчанию PAN.
-     * @param ttl    число секунд до протухания токена. В случае отсутствия - используется 1 год от текущей даты.
-     * @return строка с идентификатором токена.
+     * @param request
+     * @return
      */
     @Override
-    @Transactional
-    public String secret2Token(String secret, TokenType type, Long ttl) {
-        log.info("secret2Token: <- type=" + type);
+    public String secret2Token(TokenRequest request) {
+        log.info("secret2Token: <- type=" + request.getType());
 
         // Поиск токена среди уже существующих
-        Token token = findAlike(secret, type);
+        Token token = findAlike(request.getSecret(), request.getType());
         if (token != null) {
             // сохранение в истории токена
             tokenHistoryRepository.save(new TokenHistory(
-                    null, token, LocalDateTime.now(), "secret2Token", getUserInfo(), "doc1", null, "Eco"));
+                    null, token, LocalDateTime.now(), "secret2Token", getUserInfo(), request.getRequestID(), request.getChannel(), request.getSystemID()));
 
             // TODO игнорируется ttl, корректно ли это?
             return token.getId().toString();
@@ -78,14 +77,14 @@ public class TokenServiceImpl implements TokenService {
         // Создание токена
         token = new Token().builder()
                 .createdDate(LocalDateTime.now())
-                .type(type)
+                .type(request.getType())
                 .build();
-        if (type == TokenType.PAN) {
-            if (secret == null || !secret.matches("[0-9]{16,19}"))
+        if (request.getType() == TokenType.PAN) {
+            if (request.getSecret() == null || !request.getSecret().matches("[0-9]{16,19}"))
                 throw new InvalidArgumentApplicationException("PAN должен иметь от 16 до 19 цифр");
-            token.setIndex(maskPan(secret));
-            if (ttl != null) {
-                token.setExpiryDate(LocalDateTime.now().plusSeconds(ttl));
+            token.setIndex(maskPan(request.getSecret()));
+            if (request.getTtl() != null) {
+                token.setExpiryDate(LocalDateTime.now().plusSeconds(request.getTtl()));
             } else {
                 // взять время из настройки.
                 try {
@@ -113,7 +112,7 @@ public class TokenServiceImpl implements TokenService {
             try {
                 // TODO подумать, чтобы заменить на метод без цикла, возвращающий нужынй ключ
                 SecretKey dataKey = keyDataService.decodeDataKey(k.getId());
-                token.setSecret(KeyGenerator.encryptData(secret, dataKey));
+                token.setSecret(KeyGenerator.encryptData(request.getSecret(), dataKey));
                 key = k;
             } catch (Exception ex) {
                 log.warn("secret2Token: Ошибка создания токена:" + ex.getMessage());
@@ -130,7 +129,7 @@ public class TokenServiceImpl implements TokenService {
 
         // сохранение в истории токена
         tokenHistoryRepository.save(new TokenHistory(
-                null, token, LocalDateTime.now(), "secret2Token", getUserInfo(), "doc1", null, "Eco"));
+                null, token, LocalDateTime.now(), "secret2Token", getUserInfo(), request.getRequestID(), request.getChannel(), request.getSystemID()));
 
         log.info("secret2Token: -> " + token.getId());
 
@@ -138,6 +137,9 @@ public class TokenServiceImpl implements TokenService {
         return token.getId().toString();
     }
 
+    /*
+    * Маскировка PANa
+     */
     private String maskPan(String pan) {
         return pan.substring(0, 6)
                 + pan.substring(6, pan.length() - 4).replaceAll("[0-9]", "*")
@@ -147,11 +149,11 @@ public class TokenServiceImpl implements TokenService {
     /**
      * Получить по токену секретные данные, если ранее получал токен.
      *
-     * @param id строковое представление токена.
-     * @return строка с оригинальными секретными данными.
+     * @param id id строковое представление токена.
+     * @return
      */
     @Override
-    public String token2Secret(String id) {
+    public TokenResponse token2Secret(String id) {
         UUID uuid;
         log.info("token2Secret: <- token=" + id);
 
@@ -188,7 +190,11 @@ public class TokenServiceImpl implements TokenService {
             tokenHistoryRepository.save(new TokenHistory(
                     null, data, LocalDateTime.now(), "token2Secret", getUserInfo(), "doc1", null, "Eco"));
 
-            return KeyGenerator.decryptData(data.getSecret(), secretKey);
+            return TokenResponse.builder()
+                    .secret(KeyGenerator.decryptData(data.getSecret(), secretKey))
+                    .ttl(Duration.between(data.getExpiryDate(), LocalDateTime.now()).getSeconds())
+                    .build();
+
         } catch (Exception ex) {
             log.error("token2Secret: Ошибка расшифровки токена: " + ex.getMessage());
             throw new SecurityApplicationException("Ошибка расшифровки токена");
