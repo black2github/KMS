@@ -895,14 +895,15 @@ public class KeyDataServiceImpl implements KeyDataService {
     /*
      * Метод для отладки логики работы разными пользователями.
      */
-    private UserDetails getUserInfo() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    private String getUserInfo() {
+        Authentication currentUser = SecurityContextHolder.getContext().getAuthentication();
 
-        if (authentication != null && authentication.isAuthenticated()) {
-            Object principal = authentication.getPrincipal();
+        if (currentUser != null && currentUser.isAuthenticated()) {
+            Object principal = currentUser.getPrincipal();
 
             if (principal instanceof UserDetails) {
-                return (UserDetails) principal;
+                // return (UserDetails) principal;
+                return currentUser.getName();
             }
         }
         return null;

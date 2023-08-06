@@ -15,6 +15,6 @@ public class KeyPassword {
     private KeyData keyData;
     private char[] part1;
     private char[] part2;
-    private UserDetails user1;
-    private UserDetails user2;
+    private String user1;
+    private String user2;
 }

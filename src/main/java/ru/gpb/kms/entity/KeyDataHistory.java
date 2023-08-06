@@ -43,8 +43,8 @@ public class KeyDataHistory {
     @Convert(converter = KeyStatusConverter.class)
     private KeyStatus status;
 
-    @Column(name = "principal", length = 16, nullable = false)
-    private UserDetails user;
+    @Column(name = "user_id", length = 16, nullable = false)
+    private String user;
 
     @Column(name = "userType", length = 16, nullable = false)
     private String userType;
